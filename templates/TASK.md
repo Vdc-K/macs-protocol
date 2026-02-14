@@ -1,21 +1,20 @@
-# 任务清单
+# Task Board
 
-> **更新规则**：完成任务后移到"最近完成"，清理旧任务到 CHANGELOG
+> **Update Rule**: Move to "Recent Completed" when done. Maintainer archives after 5 items.
 
-## 🔥 当前任务（1-3 项）
-- [ ] [任务描述] - 负责人：[agent/人名] - 状态：进行中
+## 🔥 Current Tasks (1-3 items)
 
-## 📋 计划任务（优先级排序，5-10 项）
-1. [ ] [任务描述]
-2. [ ] [任务描述]
-3. [ ] [任务描述]
+- [ ] [Task description] - Assigned: [lead model] → Execute: [engineer model] - Status: In Progress
 
-## ✅ 最近完成（保留最近 3-5 项）
-- [x] [2026-02-13] [任务描述] - 完成人：[agent/人名]
+## 📋 Planned Tasks (Priority sorted)
+
+1. [ ] [Task description]
+2. [ ] [Task description]
+
+## ✅ Recent Completed (Keep 5 items)
+
+- [x] [Date] [Task description] - by {model}
 
 ---
 
-**维护规则**：
-- 完成任务 → 移到"最近完成"
-- 最近完成超过 5 项 → 移到 CHANGELOG
-- 计划任务超过 10 项 → 归档到 `archive/TASK-archive.md`
+**Maintenance**: Maintainer (cost-effective model) archives completed tasks to `archive/TASK-YYYY-MM.md` every Sunday.

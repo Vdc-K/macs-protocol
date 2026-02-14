@@ -1,50 +1,37 @@
-# [项目名称]
+# [Project Name]
 
-> [一句话项目描述]
+> [One-line description]
 
-## 🎯 Current Focus
-- 当前任务：[任务描述] → TASK-current.md
+## Current Focus
+→ TASK.md
 
-## 📂 Documentation Map
+## Documentation Map
 
-### Core Files (Always Read)
-- [README](PROJECT-README.md): Project overview, critical rules
-- [TASK-current](TASK-current.md): Active tasks (200 tokens)
-- This file (llms.txt): Navigation index
+### Always Read
+- TASK.md: Active tasks (~200t)
+- This file: Navigation index (~300t)
 
-### Reference (Read When Needed)
-- [CHANGELOG](CHANGELOG.md): Recent changes (last 2 weeks)
-- [CONTEXT](CONTEXT.md): Design decisions, key insights
-- [TASK-planned](TASK-planned.md): Upcoming tasks
+### Read When Needed
+- CHANGELOG.md: Recent changes (last 2 weeks)
+- CONTEXT.md: Design decisions, key insights
 
 ### Guides
-- [Best Practices](PROJECT-BEST-PRACTICES.md): Workflow & optimization
-- [Model Router](MODEL-ROUTER.md): When to use Flash/Sonnet/Opus
-- [Task Delegation](TASK-DELEGATION-GUIDE.md): Delegate to cheap models
+- docs/BEST-PRACTICES.md: Workflow & model routing
 
-## 🔄 Workflow
-1. Read this file → quick orientation
-2. Read TASK-current → what to do now
-3. Read CHANGELOG (last 3-5 days) → recent context
-4. Work → update TASK + CHANGELOG
-5. Weekly: auto-archive (Cron on Sunday)
+## Agent Workflow
+1. Read this file → orientation
+2. Read TASK → what to do
+3. (Optional) qmd query for deeper context
+4. Work → update TASK + CHANGELOG (with #tag + identity)
+5. Weekly: Maintainer archives + aggregates patterns
 
-## 🤖 Model Strategy
-- **Gemini Flash** ($0.15/1M): Archive, cleanup, format conversion
-- **Sonnet 4.5** ($3/1M): Development, discussion
-- **Opus 4.6** ($15/1M): Architecture, deep analysis
+## Model Roles
+- **Lead** (High-capability/$$$): Architecture, decisions, task breakdown
+- **Engineer** (Balanced/$$): Development, execution, review
+- **Maintainer** (Cost-effective/$): Archive, cleanup, weekly aggregation
 
-## 🚨 Critical Rules
-- Keep TASK-current < 200 tokens
-- Keep CHANGELOG < 2k tokens (archive after 2 weeks)
-- One-line changelog entries only
+## Rules
+- TASK current < 200 tokens
+- CHANGELOG < 2k tokens (archive after 2 weeks)
+- One-line changelog entries, always include #tag and by {model}
 - No secrets in any file
-
-## 🔗 External Resources
-- Archive: `archive/` (2+ weeks old content)
-- Full history: Available on request
-
----
-
-**Token budget**: ~1k (Layer 1) + ~3k (Layer 2 when needed) = 4k total
-vs 50k-100k full conversation history → **90%+ savings**
