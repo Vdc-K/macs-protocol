@@ -68,7 +68,7 @@ Don't use a scalpel for gardening. MACS defines a clear delegation strategy:
 ---
 
 ## 📜 License
-MIT © 2026 HH & Claw (OpenClaw Community)
+MIT © 2026 HHL & AgentClaw (OpenClaw Community)
 
 ---
 

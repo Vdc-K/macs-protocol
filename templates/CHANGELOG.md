@@ -20,7 +20,7 @@
 ---
 
 ## 2026-02-13
-- [🔧 配置] 创建项目协作文档系统（README/TASK/CHANGELOG/CONTEXT）- by Claw
+- [🔧 配置] 创建项目协作文档系统（README/TASK/CHANGELOG/CONTEXT）- by AgentClaw
 - [📝 文档] 创建 MODEL-ROUTER.md（模型分层路由策略）- by Claw
 - [📝 文档] 创建 PROJECT-BEST-PRACTICES.md（最佳实践归档）- by Claw
 - [⚡️ 自动化] 设置周度 Cron 归档任务（CHANGELOG + TASK，用 Flash）- by Claw

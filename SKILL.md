@@ -1,7 +1,7 @@
 ---
 name: multi-agent-collab
 description: Initialize a token-optimized documentation system for multi-agent collaboration. Includes templates, best practices, and automated maintenance (Cron). Reduces token usage by 90%+ and costs by 40%+.
-author: HH & Claw
+author: HHL & AgentClaw
 version: 1.0.0
 repository: https://github.com/Vdc-K/multi-agent-collab-system
 ---
