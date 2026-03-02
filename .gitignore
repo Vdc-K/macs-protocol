@@ -55,3 +55,4 @@ archive/*.large
 .macs/protocol/dist/
 .macs/tools/node_modules/
 .macs/dashboard/node_modules/
+.DS_Store
