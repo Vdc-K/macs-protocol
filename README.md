@@ -7,6 +7,7 @@
 [![npm](https://img.shields.io/npm/v/macs-protocol)](https://www.npmjs.com/package/macs-protocol)
 [![tests](https://img.shields.io/badge/tests-111%20passing-brightgreen)](#)
 [![license](https://img.shields.io/badge/license-MIT-blue)](#license)
+[![GitHub Stars](https://img.shields.io/github/stars/Vdc-K/macs-protocol?style=social)](https://github.com/Vdc-K/macs-protocol/stargazers)
 
 [English](#quick-start) | [中文](#中文)
 
@@ -125,18 +126,22 @@ macs drift           # Silent tasks (agents may be stuck)
 
 Git tracks file changes. MACS tracks **who's doing what, what depends on what, and who gets affected by changes.**
 
-### vs. A2A / MCP
+### Comparison
 
-| | A2A/MCP | MACS |
-|--|---------|------|
-| Solves | How agents communicate | How agents coordinate work |
-| Requires | Server, API endpoints | Just files + Git |
-| Analogy | HTTP | Git |
-| Works offline | No | Yes |
+|  | **MACS** | A2A / MCP | LangGraph | CrewAI |
+|--|----------|-----------|-----------|--------|
+| **Layer** | Work coordination | Communication | Orchestration | Orchestration |
+| **Analogy** | Git | HTTP | Airflow | Supervisor |
+| **State model** | Event sourcing (JSONL) | Message passing | Graph nodes | Sequential tasks |
+| **Multi-agent** | Native (swarm, handoff) | Protocol only | Manual wiring | Role-based |
+| **Requires server** | No — just files + Git | Yes | No | No |
+| **Works offline** | ✅ | ❌ | ✅ | ✅ |
+| **Session continuity** | ✅ `macs boot` | ❌ | ❌ | ❌ |
+| **Dead agent recovery** | ✅ Auto-reap | ❌ | ❌ | ❌ |
+| **Human oversight** | ✅ Built-in escalation | ❌ | Partial | Partial |
+| **Any LLM / framework** | ✅ File-based | Depends | Partial | Partial |
 
-### vs. Jira / Linear for agents
-
-Those are built for humans. MACS is built for machines — JSONL, not Markdown; events, not forms.
+> **MACS is complementary to A2A/MCP** — use MCP for agent-to-tool calls, A2A for cross-org agent communication, and MACS for coordinating the actual work.
 
 ## Key Features
 
