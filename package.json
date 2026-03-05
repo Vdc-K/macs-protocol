@@ -1,6 +1,6 @@
 {
   "name": "macs-protocol",
-  "version": "3.0.0-alpha.1",
+  "version": "3.1.0",
   "description": "MACS — Git for AI Agents. Multi-agent work coordination via JSONL Event Sourcing.",
   "type": "module",
   "bin": {

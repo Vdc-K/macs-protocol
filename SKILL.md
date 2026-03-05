@@ -1,8 +1,15 @@
 ---
 name: macs
-description: MACS Protocol v3.0 — Git for AI Agents. Multi-agent work coordination via JSONL Event Sourcing. Zero dependencies, pure files + Git.
+description: MACS Protocol v3.1 — Git for AI Agents. Multi-agent work coordination via JSONL Event Sourcing. Capability routing, review chain, escalation, dead agent reaping.
 author: MACS Community
-version: 3.0.0
+version: 3.1.0
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - node
+        - npm
+        - git
 ---
 
 # MACS — Multi-Agent Coordination System

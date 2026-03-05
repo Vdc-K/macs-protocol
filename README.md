@@ -4,6 +4,10 @@
 >
 > **MACS keeps your agents in sync.** No servers, no setup, just files + Git.
 
+[![npm](https://img.shields.io/npm/v/macs-protocol)](https://www.npmjs.com/package/macs-protocol)
+[![tests](https://img.shields.io/badge/tests-111%20passing-brightgreen)](#)
+[![license](https://img.shields.io/badge/license-MIT-blue)](#license)
+
 [English](#quick-start) | [中文](#中文)
 
 ---
@@ -45,44 +49,29 @@ Agent-003 changes the database schema
 ## Quick Start
 
 ```bash
-# Install
-npx macs init
+npm install -g macs-protocol
 
-# That's it. Your project now has .macs/
+cd my-project
+macs init "My Project"
+
+# Launch 5 agents on 12 tasks — dependency-ordered, zero conflicts
+macs swarm --agents "lead:architect|eng1:backend,api|eng2:frontend|qa:testing|devops:infra" --simulate
 ```
 
-### For agents
-
-```typescript
-import { MACSProtocol } from '@macs/protocol'
-
-const agent = new MACSProtocol({
-  id: 'engineer-sonnet',
-  capabilities: ['backend', 'testing']
-})
-
-// Claim a task
-const task = await agent.tasks.claim({ status: 'pending' })
-
-// Do work...
-
-// Mark done
-await agent.tasks.complete(task.id, {
-  artifacts: ['src/auth/jwt.ts']
-})
-```
-
-### For humans
+### Agent session (one command)
 
 ```bash
-# See what's happening
-macs status
+# Boot: register → check inbox → show status → recommend next task
+macs boot --agent eng1-sonnet --capabilities backend,api
+```
 
-# Who changed what?
-macs log
+### Human commands
 
-# What does this change affect?
-macs impact src/auth/jwt.ts
+```bash
+macs status          # Project overview (tasks, agents, review queue, escalations)
+macs log             # Immutable event history
+macs impact src/auth # Which agents/tasks does this file affect?
+macs drift           # Silent tasks (agents may be stuck)
 ```
 
 ## Why MACS?
@@ -114,13 +103,42 @@ Those are built for humans. MACS is built for machines — JSONL, not Markdown; 
 {"type":"task_completed","id":"T-001","ts":"...","by":"engineer-sonnet","data":{"artifacts":["src/auth.ts"]}}
 ```
 
-**Task Claiming** — Agents auto-claim tasks. No two agents grab the same task.
+**Capability Routing (3.1)** — Tasks declare `requires_capabilities`. Only capable agents can claim them. Swarm simulation is capability-aware.
 
-**Dependency Tracking** — Task T-002 depends on T-001? Agents know to wait.
+```bash
+macs create "Train embedding model" --requires ml,gpu
+macs claim --agent ml-agent   # skips tasks it can't do
+```
 
-**Impact Analysis** — Changed `api/users.ts`? MACS knows which agents are affected.
+**Forced Handoff** — Blocking or cancelling a task requires `--next`. No context ever lost between sessions.
 
-**Inbox Messaging** — Agents communicate through file-based mailboxes. No server needed.
+```bash
+macs block T-007 --reason "need OAuth decision" \
+  --next "wire JWT into middleware" \
+  --done "schema designed" --issue "refresh token unspecified"
+```
+
+**Review Chain (3.10)** — Agents can request peer review before marking done. Approved → completed. Rejected → back to in_progress.
+
+```bash
+macs review T-009 --agent lead-opus --result approved --note "LGTM"
+```
+
+**Escalation (3.11)** — Blocked on a human decision? Escalate and optionally auto-resume after timeout.
+
+```bash
+macs escalate T-012 --reason "GDPR compliance sign-off needed" --to cto --timeout 60
+```
+
+**Dead Agent Reaping (3.12)** — Silent agents are detected and their tasks reassigned automatically.
+
+```bash
+macs reap --threshold 45   # mark agents silent > 45 min as dead, reassign tasks
+```
+
+**Drift Detection** — `macs drift` surfaces tasks whose agents haven't checkpointed recently.
+
+**Swarm Orchestration** — `macs swarm` auto-distributes tasks across N agents in dependency-ordered rounds.
 
 **Human-Readable Output** — `human/` directory auto-generates Markdown from JSONL. You never lose readability.
 
@@ -144,15 +162,6 @@ Works with any AI agent framework:
 ./install.sh
 ```
 
-## Token Optimization
-
-MACS v2.3 includes a Markdown AST indexer for the `human/` layer:
-
-- **99% token reduction** — Query 17 changelog entries in 30 tokens (vs 3000)
-- **Dashboard** — http://localhost:3456 for visual analytics
-
-But the real efficiency comes from the Protocol layer: agents read `state.json` (structured) instead of parsing Markdown (slow).
-
 ## Positioning
 
 ```
@@ -170,10 +179,10 @@ Three layers, complementary, not competing.
 
 ## Roadmap
 
-- [x] **v2.3** — AST indexer, Dashboard, cross-platform install
-- [ ] **v3.0** — JSONL Protocol, Event Sourcing, Agent SDK, inbox messaging
-- [ ] **v3.5** — Smart task allocation, dependency graph, Dashboard v2
-- [ ] **v4.0** — Plugin system, A2A/MCP bridge, Team/Enterprise tiers
+- [x] **v3.0** — JSONL Protocol, Event Sourcing, Agent SDK, inbox messaging, swarm, forced handoff, drift detection, task decomposition
+- [x] **v3.1** — Capability routing, review chain, escalation protocol, dead agent reaping (111 tests)
+- [ ] **v3.2** — Smart drift analysis, auto-escalation triggers
+- [ ] **v4.0** — A2A/MCP bridge, hosted coordination layer
 
 ## License
 
@@ -233,10 +242,13 @@ npx macs init
 ## 核心特性
 
 - **Event Sourcing** — 每个操作都是只追加事件，无冲突，完整历史
-- **任务认领** — Agent 自动认领任务，不撞车
-- **依赖追踪** — T-002 依赖 T-001？Agent 知道要等
-- **影响分析** — 改了 `api/users.ts`？MACS 知道影响哪些 agent
-- **收件箱** — Agent 通过文件邮箱通信，不需要服务器
+- **能力路由（3.1）** — 任务声明所需能力，只有匹配的 agent 能认领
+- **强制 handoff** — block/cancel 必须留下 `--next` 交接记录，上下文不丢
+- **Review Chain（3.10）** — 支持同行审查，approved → 完成，rejected → 返回修改
+- **升级协议（3.11）** — 遇到人类决策瓶颈时升级，支持超时自动恢复
+- **死 Agent 重分配（3.12）** — 心跳超时的 agent 自动标记为 dead，任务重新分配
+- **漂移检测** — 静默任务自动标记，防止 agent 卡死无人知晓
+- **Swarm** — `macs swarm --agents N` 按依赖轮次自动分配任务
 - **人类可读** — `human/` 目录自动从 JSONL 生成 Markdown
 
 ## 定位

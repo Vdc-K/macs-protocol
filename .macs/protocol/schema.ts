@@ -21,6 +21,11 @@ export type TaskEventType =
   | 'task_cancelled'
   | 'task_priority_changed'
   | 'task_updated'
+  | 'task_decomposed'
+  | 'task_checkpoint'
+  | 'task_review_requested'   // 3.10: task goes to review_required
+  | 'task_reviewed'           // 3.10: reviewer approves or rejects
+  | 'task_escalated'          // 3.11: escalated to human
 
 /** All possible event types in events.jsonl */
 export type GlobalEventType =
@@ -33,6 +38,7 @@ export type GlobalEventType =
   | 'agent_registered'
   | 'agent_heartbeat'
   | 'agent_offline'
+  | 'agent_dead'              // 3.12: agent marked dead, tasks reassigned
   | 'lock_acquired'
   | 'lock_released'
   | 'breaking_change'
@@ -59,6 +65,7 @@ export interface TaskCreatedEvent extends TaskEventBase {
     affects: string[]         // File globs this task will touch
     estimate_ms?: number
     description?: string
+    requires_capabilities?: string[]  // 3.1: agent must have ≥1 of these
   }
 }
 
@@ -88,6 +95,7 @@ export interface TaskBlockedEvent extends TaskEventBase {
     reason: 'need_decision' | 'dependency' | 'conflict' | 'external' | 'other'
     description: string
     escalate_to?: string      // Agent ID to escalate to
+    handoff_note?: string     // Structured handoff: ✓ done / → next / ⚠ issues / ? questions
   }
 }
 
@@ -112,6 +120,7 @@ export interface TaskCancelledEvent extends TaskEventBase {
   type: 'task_cancelled'
   data: {
     reason: string
+    handoff_note?: string     // Structured handoff for next agent
   }
 }
 
@@ -133,6 +142,47 @@ export interface TaskUpdatedEvent extends TaskEventBase {
   }
 }
 
+export interface TaskDecomposedEvent extends TaskEventBase {
+  type: 'task_decomposed'
+  data: {
+    subtask_ids: string[]     // IDs of created subtasks
+    rationale?: string        // Why decomposed
+  }
+}
+
+export interface TaskCheckpointEvent extends TaskEventBase {
+  type: 'task_checkpoint'
+  data: {
+    note: string              // ✓→⚠? format: progress summary
+    progress?: number         // 0.0 - 1.0 optional
+  }
+}
+
+export interface TaskReviewRequestedEvent extends TaskEventBase {
+  type: 'task_review_requested'
+  data: {
+    note?: string             // What the completing agent wants reviewed
+    suggested_reviewer?: string
+  }
+}
+
+export interface TaskReviewedEvent extends TaskEventBase {
+  type: 'task_reviewed'
+  data: {
+    result: 'approved' | 'rejected'
+    note?: string             // Reviewer's feedback
+  }
+}
+
+export interface TaskEscalatedEvent extends TaskEventBase {
+  type: 'task_escalated'
+  data: {
+    reason: string            // Why escalation is needed
+    escalate_to?: string      // Human or lead agent ID
+    timeout_ms?: number       // Auto-resume after N ms if no response
+  }
+}
+
 export type TaskEvent =
   | TaskCreatedEvent
   | TaskAssignedEvent
@@ -144,6 +194,11 @@ export type TaskEvent =
   | TaskCancelledEvent
   | TaskPriorityChangedEvent
   | TaskUpdatedEvent
+  | TaskDecomposedEvent
+  | TaskCheckpointEvent
+  | TaskReviewRequestedEvent
+  | TaskReviewedEvent
+  | TaskEscalatedEvent
 
 // ============================================================
 // Global Events (events.jsonl)
@@ -249,6 +304,17 @@ export interface AgentOfflineEvent extends GlobalEventBase {
   }
 }
 
+export interface AgentDeadEvent extends GlobalEventBase {
+  type: 'agent_dead'
+  by: 'system'
+  data: {
+    agent_id: string
+    last_heartbeat: string
+    silent_ms: number
+    reassigned_tasks: string[]   // Task IDs reassigned to pending
+  }
+}
+
 export interface LockAcquiredEvent extends GlobalEventBase {
   type: 'lock_acquired'
   data: {
@@ -285,6 +351,7 @@ export type GlobalEvent =
   | AgentRegisteredEvent
   | AgentHeartbeatEvent
   | AgentOfflineEvent
+  | AgentDeadEvent
   | LockAcquiredEvent
   | LockReleasedEvent
   | BreakingChangeEvent
@@ -296,12 +363,17 @@ export type GlobalEvent =
 export interface TaskState {
   id: string
   status: 'pending' | 'assigned' | 'in_progress' | 'blocked' | 'completed' | 'cancelled'
+        | 'waiting_for_subtasks'
+        | 'review_required'    // 3.10: awaiting peer review
+        | 'under_review'       // 3.10: reviewer is active
+        | 'pending_human'      // 3.11: escalated, waiting for human decision
   title: string
   assignee: string | null
   priority: 'critical' | 'high' | 'medium' | 'low'
   tags: string[]
   depends: string[]
   affects: string[]
+  requires_capabilities?: string[]  // 3.1: agent must have ≥1 of these to claim
   created_at: string
   created_by: string
   started_at?: string
@@ -313,6 +385,23 @@ export interface TaskState {
   blocked_history: BlockedRecord[]
   description?: string
   summary?: string
+  handoff_note?: string        // Most recent handoff (from block or cancel)
+  last_checkpoint_at?: string  // Timestamp of last macs checkpoint
+  drift_suspected?: boolean    // True if silent longer than drift threshold
+  // Decomposition fields (2.27)
+  parent_task?: string
+  subtasks?: string[]
+  goal_chain?: string[]
+  // Review fields (3.10)
+  reviewer?: string
+  review_result?: 'approved' | 'rejected'
+  review_note?: string
+  review_requested_at?: string
+  // Escalation fields (3.11)
+  escalated_to?: string
+  escalation_reason?: string
+  escalated_at?: string
+  escalation_timeout_ms?: number
 }
 
 export interface BlockedRecord {
@@ -321,11 +410,12 @@ export interface BlockedRecord {
   duration_ms?: number
   reason: string
   decision?: string
+  handoff_note?: string   // Structured handoff left by blocking agent
 }
 
 export interface AgentState {
   id: string
-  status: 'idle' | 'busy' | 'blocked' | 'offline'
+  status: 'idle' | 'busy' | 'blocked' | 'offline' | 'dead'  // 3.12
   capabilities: string[]
   model?: string
   role?: string
@@ -359,9 +449,13 @@ export interface ProjectMetrics {
   blocked: number
   pending: number
   cancelled: number
+  waiting_for_subtasks: number
+  review_required: number      // 3.10
+  pending_human: number        // 3.11
   avg_completion_time_ms: number
   total_events: number
   active_agents: number
+  dead_agents: number          // 3.12
   conflict_count: number
   breaking_changes: number
 }
