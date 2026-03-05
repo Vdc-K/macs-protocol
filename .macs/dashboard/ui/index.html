@@ -3,84 +3,121 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MACS Dashboard</title>
+  <title>MACS Dashboard v2</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>🚀 MACS Dashboard</h1>
-      <p class="subtitle" id="project-name">Loading...</p>
-      <button id="refresh-btn" class="btn">🔄 Refresh</button>
+      <div class="header-left">
+        <h1>MACS Dashboard</h1>
+        <span class="version-badge">v2 · Protocol v3</span>
+        <span class="project-name" id="project-name">Loading…</span>
+      </div>
+      <div class="header-right">
+        <span class="live-dot" id="live-dot" title="Real-time updates"></span>
+        <span class="updated-at" id="updated-at"></span>
+      </div>
     </header>
 
-    <!-- Stats Overview -->
+    <!-- Stats row -->
     <section class="stats-grid">
       <div class="stat-card">
-        <div class="stat-value" id="total-tasks">-</div>
-        <div class="stat-label">Total Tasks</div>
+        <div class="stat-value" id="s-total">-</div>
+        <div class="stat-label">Tasks</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-value" id="s-done">-</div>
+        <div class="stat-label">Done</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-value" id="s-active">-</div>
+        <div class="stat-label">Active</div>
+      </div>
+      <div class="stat-card yellow">
+        <div class="stat-value" id="s-pending">-</div>
+        <div class="stat-label">Pending</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-value" id="s-blocked">-</div>
+        <div class="stat-label">Blocked</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-value" id="s-review">-</div>
+        <div class="stat-label">Review</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-value" id="s-human">-</div>
+        <div class="stat-label">Human↑</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value" id="completed-tasks">-</div>
-        <div class="stat-label">Completed</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="open-tasks">-</div>
-        <div class="stat-label">Open</div>
-      </div>
-      <div class="stat-card alert">
-        <div class="stat-value" id="blocked-tasks">-</div>
-        <div class="stat-label">⚠️ Blocked</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="total-changes">-</div>
-        <div class="stat-label">Total Changes</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="contributors">-</div>
-        <div class="stat-label">Contributors</div>
+        <div class="stat-value" id="s-agents">-</div>
+        <div class="stat-label">Agents</div>
       </div>
     </section>
 
-    <!-- Timeline -->
-    <section class="panel">
-      <h2>📅 Activity Timeline (Last 30 Days)</h2>
-      <div id="timeline-chart"></div>
+    <!-- Drift alerts -->
+    <section class="panel alert-panel" id="drift-panel" style="display:none">
+      <h2>🌀 Smart Drift Alerts</h2>
+      <div id="drift-list"></div>
     </section>
 
-    <!-- Token Usage -->
-    <section class="panel">
-      <h2>💰 Token Usage Over Time</h2>
-      <div id="token-chart"></div>
-      <div class="savings-note">
-        Note: Estimated token usage with MACS indexing. Without indexing, usage would be ~10x higher.
+    <!-- Main layout: left col + right col -->
+    <div class="main-grid">
+      <!-- LEFT: Agent workload + Task table -->
+      <div class="left-col">
+        <section class="panel">
+          <h2>⚖️ Agent Workload</h2>
+          <div id="agent-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2>📋 Tasks</h2>
+          <div class="task-filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="in_progress">Active</button>
+            <button class="filter-btn" data-filter="pending">Pending</button>
+            <button class="filter-btn" data-filter="completed">Done</button>
+            <button class="filter-btn" data-filter="blocked">Blocked</button>
+          </div>
+          <div id="task-table"></div>
+        </section>
       </div>
-    </section>
 
-    <!-- File Heatmap -->
-    <section class="panel">
-      <h2>🔥 File Heatmap (Most Changed Files)</h2>
-      <div id="heatmap"></div>
-    </section>
+      <!-- RIGHT: Dependency graph + Event replay -->
+      <div class="right-col">
+        <section class="panel">
+          <h2>🕸️ Dependency Graph</h2>
+          <div id="dep-graph"></div>
+        </section>
 
-    <!-- Recent Activity -->
-    <section class="panel">
-      <h2>⚡ Recent Activity</h2>
-      <div id="recent-activity"></div>
-    </section>
+        <section class="panel">
+          <h2>⏪ Event Replay</h2>
+          <div class="replay-controls">
+            <button id="replay-start" class="btn-sm">⏮</button>
+            <button id="replay-prev"  class="btn-sm">◀</button>
+            <button id="replay-play"  class="btn-sm">▶</button>
+            <button id="replay-next"  class="btn-sm">▶|</button>
+            <span id="replay-pos">0 / 0</span>
+          </div>
+          <div id="replay-event"></div>
+          <div id="event-timeline"></div>
+        </section>
+      </div>
+    </div>
 
-    <!-- Escalations -->
-    <section class="panel alert-panel" id="escalations-section" style="display: none;">
-      <h2>🚨 Escalations (Blocked Tasks)</h2>
-      <div id="escalations-list"></div>
-    </section>
-
-    <!-- Contributors -->
-    <section class="panel">
-      <h2>👥 Contributors</h2>
-      <div id="contributors-list"></div>
-    </section>
+    <!-- Bottom row: file heatmap + completions chart -->
+    <div class="bottom-grid">
+      <section class="panel">
+        <h2>🔥 File Heatmap</h2>
+        <div id="file-heatmap"></div>
+      </section>
+      <section class="panel">
+        <h2>📈 Completions by Day</h2>
+        <div id="completions-chart"></div>
+      </section>
+    </div>
   </div>
 
   <script src="app.js"></script>

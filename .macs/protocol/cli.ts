@@ -830,6 +830,69 @@ switch (command) {
     break
   }
 
+  case 'workload': {
+    // 3.2: Show agent workload distribution
+    const state = engine.getState()
+    const workload = engine.getAgentWorkload()
+    const agents = Object.values(state.agents)
+
+    console.log(`\n⚖️  Agent Workload`)
+    console.log(`${'─'.repeat(50)}`)
+    if (agents.length === 0) {
+      console.log('  No agents registered.')
+    } else {
+      const sorted = agents.sort((a, b) => (workload[b.id] ?? 0) - (workload[a.id] ?? 0))
+      for (const agent of sorted) {
+        const load = workload[agent.id] ?? 0
+        const bar = '█'.repeat(Math.min(load, 10)) + '░'.repeat(Math.max(0, 3 - load))
+        const statusIcon = agent.status === 'idle' ? '🟢' : agent.status === 'dead' ? '💀' : '🔵'
+        const caps = agent.capabilities.length > 0 ? ` [${agent.capabilities.join(', ')}]` : ''
+        console.log(`${statusIcon} ${agent.id.padEnd(24)} ${bar} ${load} active${caps}`)
+      }
+      const totalLoad = Object.values(workload).reduce((s, n) => s + n, 0)
+      const idleCount = agents.filter(a => a.status === 'idle').length
+      console.log(`\n  Total active tasks: ${totalLoad} | Idle agents: ${idleCount}/${agents.length}`)
+    }
+    console.log('')
+    break
+  }
+
+  case 'smart-drift': {
+    // 3.13: Smart drift analysis (spinning + direction drift)
+    const analysis = engine.analyzeSmartDrift()
+
+    console.log(`\n🧠 Smart Drift Analysis`)
+    console.log(`${'─'.repeat(50)}`)
+
+    if (analysis.length === 0) {
+      console.log('  ✅ No suspicious patterns detected.')
+    } else {
+      for (const { taskId, task, type, details, recommended_action } of analysis) {
+        const icon = type === 'both' ? '🔴' : type === 'spinning' ? '🌀' : '🧭'
+        console.log(`${icon} ${taskId} "${task.title}" [${type}]`)
+        console.log(`   owner: ${task.assignee || 'unassigned'}`)
+
+        if (details.spinning) {
+          console.log(`   🌀 Spinning files:`)
+          for (const { file, count } of details.spinning) {
+            console.log(`      ${file} — modified ${count}x`)
+          }
+        }
+        if (details.direction_drift) {
+          console.log(`   🧭 Direction drift:`)
+          for (const { artifact, reason } of details.direction_drift) {
+            console.log(`      ${artifact}`)
+            console.log(`        → ${reason}`)
+          }
+        }
+        console.log(`   💡 ${recommended_action}`)
+        console.log('')
+      }
+    }
+    console.log('')
+    break
+  }
+
   case 'generate': {
     generator.generate()
     console.log('✅ human/ directory updated (TASK.md, CHANGELOG.md, STATUS.md)')
@@ -838,7 +901,7 @@ switch (command) {
 
   default: {
     console.log(`
-MACS Protocol v3.0 — Git for AI Agents
+MACS Protocol v3.1 — Git for AI Agents
 
 Usage:
   macs boot --agent <id> [flags]            ★ Session start: catch up + get next task
@@ -854,6 +917,8 @@ Usage:
   macs unblock <task-id>                         Unblock a task
   macs checkpoint <task-id> --note "✓→⚠?"       Record progress checkpoint
   macs drift [--threshold 30]                    Show drifting tasks (default 30 min)
+  macs smart-drift                               Smart drift analysis: spinning + direction drift (3.13)
+  macs workload                                  Show agent workload distribution (3.2)
   macs decompose <task-id> --into "a,b,c"        Decompose task into subtasks
   macs review <task-id> --result approve|reject  Peer review a task (3.10)
   macs escalate <task-id> --reason "..."         Escalate to human (3.11)

@@ -575,6 +575,49 @@ export class MACSEngine {
   }
 
   // ----------------------------------------------------------
+  // Load Balancing (3.2)
+  // ----------------------------------------------------------
+
+  /** Returns active task count per agent (in_progress + assigned + review_required) */
+  getAgentWorkload(): Record<string, number> {
+    const state = this.getState()
+    const workload: Record<string, number> = {}
+    for (const agent of Object.values(state.agents)) workload[agent.id] = 0
+    for (const task of Object.values(state.tasks)) {
+      if (task.assignee && ['in_progress', 'assigned', 'review_required'].includes(task.status)) {
+        workload[task.assignee] = (workload[task.assignee] ?? 0) + 1
+      }
+    }
+    return workload
+  }
+
+  /**
+   * Suggests the best available agent for a task.
+   * Prefers idle agents, then least-loaded, filtered by capability.
+   */
+  suggestAgent(taskId: string): AgentState | null {
+    const state = this.getState()
+    const task = state.tasks[taskId]
+    if (!task) return null
+
+    const workload = this.getAgentWorkload()
+    const candidates = Object.values(state.agents)
+      .filter(a => a.status !== 'dead')
+      .filter(a => {
+        if (!task.requires_capabilities || task.requires_capabilities.length === 0) return true
+        return task.requires_capabilities.some(cap => a.capabilities.includes(cap))
+      })
+      .sort((a, b) => {
+        const statusScore = (s: string) => s === 'idle' ? 0 : 1
+        const statusDiff = statusScore(a.status) - statusScore(b.status)
+        if (statusDiff !== 0) return statusDiff
+        return (workload[a.id] ?? 0) - (workload[b.id] ?? 0)
+      })
+
+    return candidates[0] ?? null
+  }
+
+  // ----------------------------------------------------------
   // Task Operations (high-level, wraps events)
   // ----------------------------------------------------------
 
@@ -682,11 +725,17 @@ export class MACSEngine {
       return this.getState().tasks[taskId]
     }
 
-    // Auto-claim: find best available task (capability-filtered)
+    // Auto-claim: check workload cap before grabbing more tasks
+    const config = readJson<MACSConfig>(join(this.dir, 'macs.json'))
+    const maxConcurrent = config?.settings.max_concurrent_tasks_per_agent ?? 3
+    const workload = this.getAgentWorkload()
+    if ((workload[agentId] ?? 0) >= maxConcurrent) return null
+
+    // Find best available task (capability-filtered, priority-sorted)
     const available = this.findTasks({ status: 'pending', assignee: null, unblocked: true, capable_agent: agentId })
     if (available.length === 0) return null
 
-    // Sort by priority
+    // Sort by priority (3.3)
     const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
     available.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
 
@@ -812,6 +861,95 @@ export class MACSEngine {
     }
 
     return results.sort((a, b) => b.silentMs - a.silentMs)
+  }
+
+  // ----------------------------------------------------------
+  // Smart Drift Analysis (3.13)
+  // ----------------------------------------------------------
+
+  /**
+   * Analyzes task behavior patterns to detect:
+   * - "Spinning": same file modified 3+ times (agent is looping)
+   * - "Direction drift": artifacts don't match task title/tags
+   *
+   * Returns actionable analysis with recommended interventions.
+   */
+  analyzeSmartDrift(): Array<{
+    taskId: string
+    task: TaskState
+    type: 'spinning' | 'direction_drift' | 'both'
+    details: {
+      spinning?: Array<{ file: string; count: number }>
+      direction_drift?: Array<{ artifact: string; reason: string }>
+    }
+    recommended_action: string
+  }> {
+    const state = this.getState()
+    const globalEvents = readJsonl<GlobalEvent>(join(this.protocolDir, 'events.jsonl'))
+    const results = []
+
+    const activeTasks = Object.values(state.tasks).filter(
+      t => t.status === 'in_progress' || t.status === 'review_required'
+    )
+
+    for (const task of activeTasks) {
+      // --- Spinning detection: file_modified churn per task ---
+      const fileModEvents = globalEvents.filter(
+        e => e.type === 'file_modified' && e.task === task.id
+      ) as Array<{ type: 'file_modified'; task?: string; data: { path: string; diff_summary: string } }>
+
+      const fileCounts: Record<string, number> = {}
+      for (const ev of fileModEvents) {
+        fileCounts[ev.data.path] = (fileCounts[ev.data.path] ?? 0) + 1
+      }
+      const spinningFiles = Object.entries(fileCounts)
+        .filter(([, count]) => count >= 3)
+        .map(([file, count]) => ({ file, count }))
+        .sort((a, b) => b.count - a.count)
+
+      // --- Direction drift: artifacts vs task keywords ---
+      const keywords = [
+        ...task.title.toLowerCase().split(/\W+/).filter(w => w.length > 3),
+        ...(task.tags ?? []).map(t => t.toLowerCase()),
+      ]
+      const driftArtifacts = task.artifacts
+        .filter(artifact => {
+          const normalized = artifact.toLowerCase()
+          return keywords.length > 0 && !keywords.some(kw => normalized.includes(kw))
+        })
+        .map(artifact => ({
+          artifact,
+          reason: `artifact path "${artifact}" has no overlap with task keywords [${keywords.slice(0, 3).join(', ')}]`,
+        }))
+
+      const hasSpinning = spinningFiles.length > 0
+      const hasDrift = driftArtifacts.length > 0 && task.artifacts.length > 0
+
+      if (!hasSpinning && !hasDrift) continue
+
+      const type = hasSpinning && hasDrift ? 'both'
+        : hasSpinning ? 'spinning'
+        : 'direction_drift'
+
+      const recommended_action = type === 'both'
+        ? `Escalate to lead: agent appears stuck AND producing off-topic artifacts`
+        : type === 'spinning'
+        ? `Request checkpoint from ${task.assignee ?? 'agent'}: file "${spinningFiles[0].file}" modified ${spinningFiles[0].count}x`
+        : `Review artifacts with ${task.assignee ?? 'agent'}: output may not match task goal`
+
+      results.push({
+        taskId: task.id,
+        task,
+        type: type as 'spinning' | 'direction_drift' | 'both',
+        details: {
+          ...(hasSpinning && { spinning: spinningFiles }),
+          ...(hasDrift && { direction_drift: driftArtifacts }),
+        },
+        recommended_action,
+      })
+    }
+
+    return results
   }
 
   // ----------------------------------------------------------

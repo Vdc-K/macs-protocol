@@ -502,5 +502,6 @@ export interface MACSConfig {
     lock_timeout_ms: number             // Default: 600000 (10 min)
     generate_human_readable: boolean    // Default: true
     conflict_resolution: 'last_write_wins' | 'manual'  // Default: last_write_wins
+    max_concurrent_tasks_per_agent?: number  // Default: 3 (load balancing cap)
   }
 }

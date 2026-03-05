@@ -604,6 +604,65 @@ assert(stateAfterReap.tasks[zombieTask.id].assignee === null, '3.12: reassigned 
 assert(stateAfterReap.tasks[zombieTask.id].status === 'pending', '3.12: reassigned task is back to pending')
 assert(stateAfterReap.metrics.dead_agents >= 1, '3.12: metrics.dead_agents >= 1')
 
+// ── Section 20: Load Balancing (3.2) ─────────────
+console.log('\n20. Load Balancing (3.2)')
+
+engine.registerAgent('worker-a', { capabilities: ['backend'], model: 'sonnet' })
+engine.registerAgent('worker-b', { capabilities: ['backend'], model: 'sonnet' })
+
+const wt1 = engine.createTask('lead-opus', { title: 'LB task 1', priority: 'medium' })
+const wt2 = engine.createTask('lead-opus', { title: 'LB task 2', priority: 'medium' })
+const wt3 = engine.createTask('lead-opus', { title: 'LB task 3', priority: 'medium' })
+engine.claimTask('worker-a', wt1.id); engine.startTask('worker-a', wt1.id)
+engine.claimTask('worker-a', wt2.id); engine.startTask('worker-a', wt2.id)
+engine.claimTask('worker-a', wt3.id); engine.startTask('worker-a', wt3.id)
+
+const workload = engine.getAgentWorkload()
+assert(workload['worker-a'] === 3, '3.2: worker-a has 3 active tasks')
+assert(workload['worker-b'] === 0, '3.2: worker-b has 0 active tasks')
+
+engine.createTask('lead-opus', { title: 'LB suggest task', priority: 'medium' })
+const allPending = engine.findTasks({ status: 'pending', assignee: null })
+const suggestTarget = allPending[0]
+const suggested = engine.suggestAgent(suggestTarget.id)
+assert(suggested?.id === 'worker-b', '3.2: suggestAgent prefers idle/low-load agent')
+
+engine.createTask('lead-opus', { title: 'LB overflow task', priority: 'high' })
+const overloadClaim = engine.claimTask('worker-a')
+assert(overloadClaim === null, '3.2: worker-a cannot auto-claim at max_concurrent (3)')
+
+const wbClaim = engine.claimTask('worker-b')
+assert(wbClaim !== null, '3.2: worker-b can auto-claim when under cap')
+
+// ── Section 21: Smart Drift Analysis (3.13) ──────
+console.log('\n21. Smart Drift Analysis (3.13)')
+
+const spinTask = engine.createTask('lead-opus', { title: 'Fix payment auth', tags: ['auth'], priority: 'high' })
+engine.claimTask('worker-a', spinTask.id)
+engine.startTask('worker-a', spinTask.id)
+
+// Simulate same file modified 4 times → spinning
+for (let i = 0; i < 4; i++) {
+  engine.appendGlobalEvent({
+    type: 'file_modified',
+    ts: new Date().toISOString(),
+    by: 'worker-a',
+    task: spinTask.id,
+    data: { path: 'src/payment/stripe.ts', diff_summary: `+${i * 3} -${i}` },
+  })
+}
+
+const smartDriftResults = engine.analyzeSmartDrift()
+assert(Array.isArray(smartDriftResults), '3.13: analyzeSmartDrift returns array')
+
+const spinResult = smartDriftResults.find(r => r.taskId === spinTask.id)
+assert(!!spinResult, '3.13: spinning task detected')
+assert(spinResult?.type === 'spinning' || spinResult?.type === 'both', '3.13: type is spinning or both')
+assert(spinResult?.details.spinning !== undefined, '3.13: spinning details present')
+assert((spinResult?.details.spinning?.[0].count ?? 0) >= 3, '3.13: spinning count >= 3')
+assert(typeof spinResult?.recommended_action === 'string', '3.13: recommended_action is a string')
+assert(spinResult?.recommended_action.includes('stripe.ts'), '3.13: recommended_action mentions the spinning file')
+
 // ── Summary ───────────────────────────────────────
 console.log(`\n${'═'.repeat(50)}`)
 console.log(`  Results: ${passed} passed, ${failed} failed`)

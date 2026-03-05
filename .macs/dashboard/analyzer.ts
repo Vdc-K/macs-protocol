@@ -1,204 +1,273 @@
 /**
- * Dashboard Analyzer
- * Analyzes MACS project data for visualization
+ * Dashboard Analyzer v2
+ * Reads Protocol v3 data (state.json + events.jsonl + tasks.jsonl)
+ * Replaces old Markdown index approach
  */
 
-import fs from 'fs/promises'
+import { readFileSync, existsSync } from 'fs'
 import path from 'path'
-import { execSync } from 'child_process'
-import type { MACSIndex } from '../tools/src/types.js'
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function readJson<T>(filePath: string): T | null {
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf-8')) as T
+  } catch {
+    return null
+  }
+}
+
+function readJsonl<T>(filePath: string): T[] {
+  if (!existsSync(filePath)) return []
+  try {
+    return readFileSync(filePath, 'utf-8')
+      .split('\n')
+      .filter(l => l.trim())
+      .map(l => JSON.parse(l) as T)
+  } catch {
+    return []
+  }
+}
+
+// ── Types ──────────────────────────────────────────────────────────────────
 
 export interface DashboardData {
   project: string
   generatedAt: string
+  version: string
 
-  // Overview stats
   stats: {
     totalTasks: number
-    completedTasks: number
-    openTasks: number
-    blockedTasks: number
-    totalChanges: number
-    contributors: string[]
+    completed: number
+    inProgress: number
+    pending: number
+    blocked: number
+    reviewRequired: number
+    pendingHuman: number
+    cancelled: number
+    totalAgents: number
+    idleAgents: number
+    deadAgents: number
   }
 
-  // Timeline data (for visualization)
-  timeline: Array<{
-    date: string
-    agent: string
-    action: string
-    type: 'feat' | 'fix' | 'docs' | 'task' | 'escalation'
+  agents: Array<{
+    id: string
+    status: string
+    capabilities: string[]
+    activeTasks: number
+    completedTasks: number
+    lastHeartbeat: string
   }>
 
-  // File heatmap (which files are touched most)
-  heatmap: Array<{
-    file: string
-    changes: number
+  tasks: Array<{
+    id: string
+    title: string
+    status: string
+    priority: string
+    assignee: string | null
+    depends: string[]
+    tags: string[]
+    driftSuspected: boolean
+    createdAt: string
+    startedAt?: string
+    completedAt?: string
   }>
 
-  // Token usage over time
-  tokenUsage: Array<{
-    date: string
-    estimated: number
+  dependencyEdges: Array<{ from: string; to: string }>
+
+  // Last 100 events, newest first
+  eventTimeline: Array<{
+    seq: number
+    ts: string
+    type: string
+    taskId?: string
+    by: string
+    summary: string
   }>
 
-  // Recent activity
-  recentActivity: Array<{
-    timestamp: string
-    agent: string
-    message: string
-  }>
+  fileHeatmap: Array<{ file: string; count: number }>
 
-  // Escalations
-  escalations: Array<{
+  driftAlerts: Array<{
     taskId: string
-    reason: string
-    escalatedAt: string
+    title: string
+    assignee: string | null
+    type: string
+    recommended_action: string
+    spinningFiles?: Array<{ file: string; count: number }>
   }>
+
+  completionsByDay: Array<{ date: string; count: number }>
 }
 
+// ── Analyzer ───────────────────────────────────────────────────────────────
+
 export class DashboardAnalyzer {
-  private indexPath: string
+  private protocolDir: string
   private projectPath: string
 
   constructor(projectPath: string) {
     this.projectPath = projectPath
-    this.indexPath = path.join(projectPath, '.macs', 'index.json')
+    this.protocolDir = path.join(projectPath, '.macs', 'protocol')
   }
 
-  async analyze(): Promise<DashboardData> {
-    // Load MACS index
-    let index: MACSIndex
-    try {
-      const indexData = await fs.readFile(this.indexPath, 'utf-8')
-      index = JSON.parse(indexData)
-    } catch {
-      throw new Error('No MACS index found. Run `macs index` first.')
+  analyze(): DashboardData {
+    const stateFile  = path.join(this.protocolDir, 'state.json')
+    const eventsFile = path.join(this.protocolDir, 'events.jsonl')
+    const tasksFile  = path.join(this.protocolDir, 'tasks.jsonl')
+    const configFile = path.join(this.projectPath, '.macs', 'macs.json')
+
+    const config      = readJson<any>(configFile)
+    const state       = readJson<any>(stateFile)
+    const taskEvents  = readJsonl<any>(tasksFile)
+    const globalEvts  = readJsonl<any>(eventsFile)
+
+    if (!state) return this.empty(config?.project ?? path.basename(this.projectPath))
+
+    const tasks  = Object.values(state.tasks  ?? {}) as any[]
+    const agents = Object.values(state.agents ?? {}) as any[]
+
+    // Stats
+    const stats = {
+      totalTasks:    tasks.length,
+      completed:     tasks.filter(t => t.status === 'completed').length,
+      inProgress:    tasks.filter(t => t.status === 'in_progress').length,
+      pending:       tasks.filter(t => t.status === 'pending').length,
+      blocked:       tasks.filter(t => t.status === 'blocked').length,
+      reviewRequired:tasks.filter(t => t.status === 'review_required').length,
+      pendingHuman:  tasks.filter(t => t.status === 'pending_human').length,
+      cancelled:     tasks.filter(t => t.status === 'cancelled').length,
+      totalAgents:   agents.length,
+      idleAgents:    agents.filter((a:any) => a.status === 'idle').length,
+      deadAgents:    agents.filter((a:any) => a.status === 'dead').length,
     }
 
-    // Get Git activity
-    const gitActivity = await this.getGitActivity()
-
-    // Get file heatmap from Git
-    const heatmap = await this.getFileHeatmap()
-
-    // Build timeline from changelog
-    const timeline = index.changelog.map(e => ({
-      date: e.date,
-      agent: e.author || 'unknown',
-      action: e.content,
-      type: e.type as any,
-    }))
-
-    // Estimate token usage over time
-    const tokenUsage = this.estimateTokenUsage(index)
-
-    // Recent activity (last 10 changelog entries)
-    const recentActivity = index.changelog.slice(-10).reverse().map(e => ({
-      timestamp: e.date,
-      agent: e.author || 'unknown',
-      message: `[${e.type}] ${e.content}`,
-    }))
-
-    // Escalations from tasks
-    const escalations = index.tasks
-      .filter(t => t.status === 'blocked')
-      .map(t => ({
-        taskId: t.id,
-        reason: t.blockedBy || 'Unknown',
-        escalatedAt: 'N/A',  // TODO: track escalation timestamp
+    // Agent workload
+    const loadMap: Record<string, number> = {}
+    for (const a of agents) loadMap[a.id] = 0
+    for (const t of tasks) {
+      if (t.assignee && ['in_progress','assigned','review_required'].includes(t.status))
+        loadMap[t.assignee] = (loadMap[t.assignee] ?? 0) + 1
+    }
+    const doneByAgent: Record<string, number> = {}
+    for (const e of taskEvents) {
+      if (e.type === 'task_completed') doneByAgent[e.by] = (doneByAgent[e.by] ?? 0) + 1
+    }
+    const agentList = agents
+      .map((a:any) => ({
+        id: a.id, status: a.status, capabilities: a.capabilities ?? [],
+        activeTasks: loadMap[a.id] ?? 0, completedTasks: doneByAgent[a.id] ?? 0,
+        lastHeartbeat: a.last_heartbeat ?? '',
       }))
+      .sort((x:any, y:any) => y.activeTasks - x.activeTasks)
+
+    // Task list
+    const taskList = tasks
+      .map((t:any) => ({
+        id: t.id, title: t.title, status: t.status, priority: t.priority,
+        assignee: t.assignee ?? null, depends: t.depends ?? [], tags: t.tags ?? [],
+        driftSuspected: t.drift_suspected ?? false,
+        createdAt: t.created_at, startedAt: t.started_at, completedAt: t.completed_at,
+      }))
+      .sort((a:any, b:any) => a.id.localeCompare(b.id))
+
+    // Dependency edges
+    const dependencyEdges: DashboardData['dependencyEdges'] = []
+    for (const t of tasks)
+      for (const dep of (t.depends ?? []))
+        dependencyEdges.push({ from: dep, to: t.id })
+
+    // Event timeline (newest first, last 100)
+    const allEvts = [
+      ...taskEvents.map((e:any) => ({ ...e, _src: 'task' })),
+      ...globalEvts .map((e:any) => ({ ...e, _src: 'global' })),
+    ].sort((a, b) => (b.seq ?? 0) - (a.seq ?? 0)).slice(0, 100)
+
+    const eventTimeline = allEvts.map((e:any) => ({
+      seq:    e.seq ?? 0,
+      ts:     e.ts  ?? '',
+      type:   e.type,
+      taskId: e.id ?? e.task ?? undefined,
+      by:     e.by ?? 'system',
+      summary: this.summarize(e),
+    }))
+
+    // File heatmap
+    const fileCnt: Record<string, number> = {}
+    for (const e of globalEvts)
+      if (e.type === 'file_modified' && e.data?.path)
+        fileCnt[e.data.path] = (fileCnt[e.data.path] ?? 0) + 1
+    const fileHeatmap = Object.entries(fileCnt)
+      .map(([file, count]) => ({ file, count }))
+      .sort((a, b) => b.count - a.count).slice(0, 20)
+
+    // Smart drift (spinning)
+    const driftAlerts = this.driftScan(tasks, globalEvts)
+
+    // Completions by day
+    const dayMap: Record<string, number> = {}
+    for (const e of taskEvents)
+      if (e.type === 'task_completed' && e.ts)
+        dayMap[e.ts.slice(0,10)] = (dayMap[e.ts.slice(0,10)] ?? 0) + 1
+    const completionsByDay = Object.entries(dayMap)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date))
 
     return {
-      project: index.project,
+      project: config?.project ?? path.basename(this.projectPath),
       generatedAt: new Date().toISOString(),
-      stats: {
-        ...index.stats,
-        blockedTasks: index.tasks.filter(t => t.status === 'blocked').length,
-      },
-      timeline,
-      heatmap,
-      tokenUsage,
-      recentActivity,
-      escalations,
+      version: state.version ?? '3.0',
+      stats, agents: agentList, tasks: taskList,
+      dependencyEdges, eventTimeline, fileHeatmap, driftAlerts, completionsByDay,
     }
   }
 
-  async refresh() {
-    // Re-generate index by calling indexer
-    const { MarkdownIndexer } = await import('../tools/src/markdown-indexer.js')
-    await MarkdownIndexer.indexProject(this.projectPath)
-  }
-
-  private async getGitActivity(): Promise<Array<{ date: string; commits: number }>> {
-    try {
-      const log = execSync(
-        'git log --since="30 days ago" --format="%ci" --no-merges',
-        { cwd: this.projectPath, encoding: 'utf-8' }
-      )
-
-      const dates = log.trim().split('\n')
-        .map(line => line.split(' ')[0])
-        .filter(Boolean)
-
-      // Group by date
-      const grouped = dates.reduce((acc, date) => {
-        acc[date] = (acc[date] || 0) + 1
-        return acc
-      }, {} as Record<string, number>)
-
-      return Object.entries(grouped).map(([date, commits]) => ({
-        date,
-        commits,
-      }))
-    } catch {
-      return []
+  private summarize(e: any): string {
+    const id = e.id ?? e.task ?? ''
+    const p = id ? `[${id}] ` : ''
+    switch (e.type) {
+      case 'task_created':          return `${p}created "${e.data?.title ?? ''}"`
+      case 'task_assigned':         return `${p}assigned → ${e.data?.assignee ?? '?'}`
+      case 'task_started':          return `${p}started by ${e.by}`
+      case 'task_completed':        return `${p}completed by ${e.by}`
+      case 'task_blocked':          return `${p}blocked: ${e.data?.reason ?? ''}`
+      case 'task_unblocked':        return `${p}unblocked`
+      case 'task_cancelled':        return `${p}cancelled`
+      case 'task_review_requested': return `${p}review requested`
+      case 'task_reviewed':         return `${p}reviewed: ${e.data?.result ?? ''}`
+      case 'task_escalated':        return `${p}escalated to human`
+      case 'agent_dead':            return `agent ${e.data?.agent_id} dead — ${e.data?.reassigned_tasks?.length ?? 0} tasks reassigned`
+      case 'file_modified':         return `${p}${e.data?.path} modified`
+      case 'decision_made':         return `${p}decision: ${e.data?.decision ?? ''}`
+      default:                      return `${e.type} by ${e.by}`
     }
   }
 
-  private async getFileHeatmap(): Promise<Array<{ file: string; changes: number }>> {
-    try {
-      const log = execSync(
-        'git log --since="30 days ago" --name-only --format="" --no-merges',
-        { cwd: this.projectPath, encoding: 'utf-8' }
-      )
-
-      const files = log.trim().split('\n').filter(Boolean)
-
-      // Count changes per file
-      const counts = files.reduce((acc, file) => {
-        acc[file] = (acc[file] || 0) + 1
-        return acc
-      }, {} as Record<string, number>)
-
-      // Sort by changes descending
-      return Object.entries(counts)
-        .map(([file, changes]) => ({ file, changes }))
-        .sort((a, b) => b.changes - a.changes)
-        .slice(0, 20)  // Top 20 files
-    } catch {
-      return []
-    }
-  }
-
-  private estimateTokenUsage(index: MACSIndex): Array<{ date: string; estimated: number }> {
-    // Group changelog entries by date
-    const byDate = index.changelog.reduce((acc, e) => {
-      if (!acc[e.date]) acc[e.date] = []
-      acc[e.date].push(e)
-      return acc
-    }, {} as Record<string, typeof index.changelog>)
-
-    // Estimate tokens per day (lines * 3 tokens/line)
-    return Object.entries(byDate).map(([date, entries]) => {
-      const lines = entries.reduce((sum, e) => {
-        return sum + (e.lineRange[1] - e.lineRange[0] + 1)
-      }, 0)
-
-      return {
-        date,
-        estimated: lines * 3,
+  private driftScan(tasks: any[], globalEvts: any[]): DashboardData['driftAlerts'] {
+    const results: DashboardData['driftAlerts'] = []
+    for (const t of tasks) {
+      if (t.status !== 'in_progress' && t.status !== 'review_required') continue
+      const fileMods = globalEvts.filter(e => e.type === 'file_modified' && e.task === t.id)
+      const cnt: Record<string, number> = {}
+      for (const e of fileMods) cnt[e.data?.path] = (cnt[e.data?.path] ?? 0) + 1
+      const spinning = Object.entries(cnt).filter(([,c]) => c >= 3)
+        .map(([file, count]) => ({ file, count }))
+        .sort((a, b) => b.count - a.count)
+      if (spinning.length > 0) {
+        results.push({
+          taskId: t.id, title: t.title, assignee: t.assignee ?? null, type: 'spinning',
+          recommended_action: `Request checkpoint: "${spinning[0].file}" modified ${spinning[0].count}x`,
+          spinningFiles: spinning,
+        })
       }
-    })
+    }
+    return results
+  }
+
+  private empty(project: string): DashboardData {
+    return {
+      project, generatedAt: new Date().toISOString(), version: '3.0',
+      stats: { totalTasks:0,completed:0,inProgress:0,pending:0,blocked:0,reviewRequired:0,pendingHuman:0,cancelled:0,totalAgents:0,idleAgents:0,deadAgents:0 },
+      agents:[], tasks:[], dependencyEdges:[], eventTimeline:[], fileHeatmap:[], driftAlerts:[], completionsByDay:[],
+    }
   }
 }
