@@ -12,6 +12,51 @@
 
 ---
 
+## See It In Action
+
+```
+$ macs swarm \
+    --agents "lead:architect,planner|eng1:backend,api|eng2:frontend,ui|qa:testing|devops:infra" \
+    --simulate
+
+🐝 MACS Swarm — 5 agents | 12 tasks | simulate mode
+────────────────────────────────────────────────────────
+  🤖 lead    (architect, planner)
+  🤖 eng1    (backend, api)
+  🤖 eng2    (frontend, ui)
+  🤖 qa      (testing, e2e)
+  🤖 devops  (infra, deploy)
+
+▶ Round 1  — Foundation
+  🔄 lead    → T-001: Design system architecture
+  🔄 eng1    → T-002: Set up database schema
+  🔄 devops  → T-003: Configure CI/CD pipeline
+  ✓  lead    ← T-001 done
+  ✓  eng1    ← T-002 done
+  ✓  devops  ← T-003 done
+
+▶ Round 2  — T-001 + T-002 unlocked 4 tasks
+  🔄 lead    → T-004: Implement auth API
+  🔄 eng1    → T-005: User CRUD endpoints
+  🔄 eng2    → T-006: React auth components
+  🔄 qa      → T-007: Integration test suite
+  ✓  all 4 done
+
+▶ Round 3  — Final wave
+  🔄 eng2    → T-010: Dashboard UI
+  🔄 qa      → T-011: E2E tests
+  🔄 devops  → T-012: Deploy to staging
+  ✓  all done
+
+────────────────────────────────────────────────────────
+✅ 12/12 tasks complete | 3 rounds | 0 conflicts
+   Zero merge conflicts. Zero orphaned tasks. Zero chaos.
+```
+
+**One command. 5 agents. 12 tasks. Dependency-ordered, zero conflicts.**
+
+---
+
 ## The Problem
 
 You have multiple AI agents working on the same codebase:
