@@ -4,7 +4,7 @@
   "description": "MACS — Git for AI Agents. Multi-agent work coordination via JSONL Event Sourcing.",
   "type": "module",
   "bin": {
-    "macs": "./bin/macs.js"
+    "macs": "bin/macs.js"
   },
   "scripts": {
     "build": "cd .macs/protocol && npm run build && cp -r dist ../../bin-src",
@@ -23,7 +23,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/macs-protocol/macs"
+    "url": "https://github.com/Vdc-K/macs-protocol"
   },
   "engines": {
     "node": ">=18.0.0"
