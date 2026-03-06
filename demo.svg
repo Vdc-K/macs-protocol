@@ -1,0 +1,298 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="828" viewBox="0 0 720 828">
+<style>
+  .terminal { font: 13px 'Cascadia Code', 'Fira Code', 'Menlo', monospace; }
+  .line { opacity: 0; }
+  .cursor { animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+<rect width="720" height="828" rx="8" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+<rect width="720" height="32" rx="8" fill="#161b22"/>
+<rect y="24" width="720" height="8" fill="#161b22"/>
+<circle cx="16" cy="16" r="6" fill="#ff5f57"/>
+<circle cx="36" cy="16" r="6" fill="#febc2e"/>
+<circle cx="56" cy="16" r="6" fill="#28c840"/>
+<text x="360" y="21" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" fill="#6e7681">macs swarm — simulate</text>
+<style>
+  @keyframes l0 {
+    0%, 0.0% { opacity: 0; }
+    0.5%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="50" fill="#58a6ff" style="animation: l0 12.0s linear infinite;">$ macs swarm --agents &quot;lead:architect|eng1:backend,api|eng2:frontend,ui|qa:testing|devops:infra&quot; --simulate</text>
+<style>
+  @keyframes l1 {
+    0%, 2.5% { opacity: 0; }
+    3.0%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="72" fill="#6e7681" style="animation: l1 12.0s linear infinite;"></text>
+<style>
+  @keyframes l2 {
+    0%, 4.2% { opacity: 0; }
+    4.7%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="94" fill="#f0883e" style="animation: l2 12.0s linear infinite;">🐝 MACS Swarm — 5 agents | 12 tasks | simulate mode</text>
+<style>
+  @keyframes l3 {
+    0%, 5.8% { opacity: 0; }
+    6.3%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="116" fill="#6e7681" style="animation: l3 12.0s linear infinite;">────────────────────────────────────────────────────</text>
+<style>
+  @keyframes l4 {
+    0%, 7.5% { opacity: 0; }
+    8.0%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="138" fill="#e6edf3" style="animation: l4 12.0s linear infinite;">  🤖 lead    (architect, planner)</text>
+<style>
+  @keyframes l5 {
+    0%, 9.2% { opacity: 0; }
+    9.7%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="160" fill="#e6edf3" style="animation: l5 12.0s linear infinite;">  🤖 eng1    (backend, api)</text>
+<style>
+  @keyframes l6 {
+    0%, 10.8% { opacity: 0; }
+    11.3%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="182" fill="#e6edf3" style="animation: l6 12.0s linear infinite;">  🤖 eng2    (frontend, ui)</text>
+<style>
+  @keyframes l7 {
+    0%, 12.5% { opacity: 0; }
+    13.0%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="204" fill="#e6edf3" style="animation: l7 12.0s linear infinite;">  🤖 qa      (testing, e2e)</text>
+<style>
+  @keyframes l8 {
+    0%, 14.2% { opacity: 0; }
+    14.7%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="226" fill="#e6edf3" style="animation: l8 12.0s linear infinite;">  🤖 devops  (infra, deploy)</text>
+<style>
+  @keyframes l9 {
+    0%, 15.8% { opacity: 0; }
+    16.3%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="248" fill="#6e7681" style="animation: l9 12.0s linear infinite;"></text>
+<style>
+  @keyframes l10 {
+    0%, 17.5% { opacity: 0; }
+    18.0%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="270" fill="#58a6ff" style="animation: l10 12.0s linear infinite;">▶ Round 1  — Foundation</text>
+<style>
+  @keyframes l11 {
+    0%, 20.0% { opacity: 0; }
+    20.5%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="292" fill="#58a6ff" style="animation: l11 12.0s linear infinite;">  🔄 lead    → T-001: Design system architecture</text>
+<style>
+  @keyframes l12 {
+    0%, 21.7% { opacity: 0; }
+    22.2%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="314" fill="#58a6ff" style="animation: l12 12.0s linear infinite;">  🔄 eng1    → T-002: Set up database schema</text>
+<style>
+  @keyframes l13 {
+    0%, 23.3% { opacity: 0; }
+    23.8%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="336" fill="#58a6ff" style="animation: l13 12.0s linear infinite;">  🔄 devops  → T-003: Configure CI/CD pipeline</text>
+<style>
+  @keyframes l14 {
+    0%, 28.3% { opacity: 0; }
+    28.8%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="358" fill="#3fb950" style="animation: l14 12.0s linear infinite;">  ✓  lead    ← T-001 done</text>
+<style>
+  @keyframes l15 {
+    0%, 30.0% { opacity: 0; }
+    30.5%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="380" fill="#3fb950" style="animation: l15 12.0s linear infinite;">  ✓  eng1    ← T-002 done</text>
+<style>
+  @keyframes l16 {
+    0%, 31.7% { opacity: 0; }
+    32.2%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="402" fill="#3fb950" style="animation: l16 12.0s linear infinite;">  ✓  devops  ← T-003 done</text>
+<style>
+  @keyframes l17 {
+    0%, 33.3% { opacity: 0; }
+    33.8%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="424" fill="#6e7681" style="animation: l17 12.0s linear infinite;"></text>
+<style>
+  @keyframes l18 {
+    0%, 35.0% { opacity: 0; }
+    35.5%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="446" fill="#58a6ff" style="animation: l18 12.0s linear infinite;">▶ Round 2  — T-001 + T-002 unlocked 4 tasks</text>
+<style>
+  @keyframes l19 {
+    0%, 37.5% { opacity: 0; }
+    38.0%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="468" fill="#58a6ff" style="animation: l19 12.0s linear infinite;">  🔄 lead    → T-004: Implement auth API</text>
+<style>
+  @keyframes l20 {
+    0%, 39.2% { opacity: 0; }
+    39.7%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="490" fill="#58a6ff" style="animation: l20 12.0s linear infinite;">  🔄 eng1    → T-005: User CRUD endpoints</text>
+<style>
+  @keyframes l21 {
+    0%, 40.8% { opacity: 0; }
+    41.3%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="512" fill="#58a6ff" style="animation: l21 12.0s linear infinite;">  🔄 eng2    → T-006: React auth components</text>
+<style>
+  @keyframes l22 {
+    0%, 42.5% { opacity: 0; }
+    43.0%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="534" fill="#58a6ff" style="animation: l22 12.0s linear infinite;">  🔄 qa      → T-007: Integration test suite</text>
+<style>
+  @keyframes l23 {
+    0%, 49.2% { opacity: 0; }
+    49.7%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="556" fill="#3fb950" style="animation: l23 12.0s linear infinite;">  ✓  all 4 done</text>
+<style>
+  @keyframes l24 {
+    0%, 50.8% { opacity: 0; }
+    51.3%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="578" fill="#6e7681" style="animation: l24 12.0s linear infinite;"></text>
+<style>
+  @keyframes l25 {
+    0%, 52.5% { opacity: 0; }
+    53.0%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="600" fill="#58a6ff" style="animation: l25 12.0s linear infinite;">▶ Round 3  — Final wave</text>
+<style>
+  @keyframes l26 {
+    0%, 55.0% { opacity: 0; }
+    55.5%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="622" fill="#58a6ff" style="animation: l26 12.0s linear infinite;">  🔄 eng2    → T-010: Dashboard UI</text>
+<style>
+  @keyframes l27 {
+    0%, 56.7% { opacity: 0; }
+    57.2%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="644" fill="#58a6ff" style="animation: l27 12.0s linear infinite;">  🔄 qa      → T-011: E2E tests</text>
+<style>
+  @keyframes l28 {
+    0%, 58.3% { opacity: 0; }
+    58.8%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="666" fill="#58a6ff" style="animation: l28 12.0s linear infinite;">  🔄 devops  → T-012: Deploy to staging</text>
+<style>
+  @keyframes l29 {
+    0%, 65.0% { opacity: 0; }
+    65.5%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="688" fill="#3fb950" style="animation: l29 12.0s linear infinite;">  ✓  all done</text>
+<style>
+  @keyframes l30 {
+    0%, 66.7% { opacity: 0; }
+    67.2%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="710" fill="#6e7681" style="animation: l30 12.0s linear infinite;"></text>
+<style>
+  @keyframes l31 {
+    0%, 68.3% { opacity: 0; }
+    68.8%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="732" fill="#6e7681" style="animation: l31 12.0s linear infinite;">────────────────────────────────────────────────────</text>
+<style>
+  @keyframes l32 {
+    0%, 70.8% { opacity: 0; }
+    71.3%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="754" fill="#3fb950" style="animation: l32 12.0s linear infinite;">✅ 12/12 tasks complete | 3 rounds | 0 conflicts</text>
+<style>
+  @keyframes l33 {
+    0%, 74.2% { opacity: 0; }
+    74.7%, 96.0% { opacity: 1; }
+    99.0%, 100% { opacity: 0; }
+  }
+</style>
+<text class="terminal" x="20" y="776" fill="#6e7681" style="animation: l33 12.0s linear infinite;">   Zero merge conflicts. Zero orphaned tasks. Zero chaos.</text>
+<style>
+  @keyframes cursor_anim {
+    0%, 74.2% { opacity: 0; }
+    74.7%, 96% { opacity: 1; }
+    99%, 100% { opacity: 0; }
+  }
+  @keyframes cursor_blink {
+    50% { opacity: 0; }
+  }
+</style>
+<rect x="20" y="786" width="8" height="14" fill="#58a6ff" style="animation: cursor_anim 12.0s linear infinite, cursor_blink 1s step-end infinite;"/>
+</svg>
