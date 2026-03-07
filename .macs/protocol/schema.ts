@@ -1,9 +1,12 @@
 /**
- * MACS Protocol v3.0 — Type Definitions
+ * MACS Protocol v4.1 — Type Definitions
  *
  * Core principle: Append-only JSONL events → rebuildable state → auto-generated Markdown
  * All timestamps are ISO 8601. All IDs are prefixed (T-, C-, E-, MSG-).
  */
+
+/** Current spec version — written into every event for forward compatibility */
+export const MACS_SPEC_VERSION = '4.1'
 
 // ============================================================
 // Event Types — the atomic units of the protocol
@@ -48,6 +51,7 @@ export type GlobalEventType =
 // ============================================================
 
 export interface TaskEventBase {
+  spec_version?: string  // MACS spec version (auto-injected by engine)
   type: TaskEventType
   id: string           // Task ID: T-001, T-002...
   ts: string           // ISO 8601
@@ -205,6 +209,7 @@ export type TaskEvent =
 // ============================================================
 
 export interface GlobalEventBase {
+  spec_version?: string      // MACS spec version (auto-injected by engine)
   type: GlobalEventType
   ts: string
   by: string
@@ -277,6 +282,8 @@ export interface AgentRegisteredEvent extends GlobalEventBase {
   type: 'agent_registered'
   data: {
     agent_id: string
+    instance_id: string      // Unique per launch (nanoid), for crash/restart detection
+    session_id?: string      // Groups instances of the same logical agent across sessions
     capabilities: string[]
     model?: string
     role?: string
@@ -415,6 +422,8 @@ export interface BlockedRecord {
 
 export interface AgentState {
   id: string
+  instance_id?: string       // Current instance (changes on restart)
+  session_id?: string        // Logical session group
   status: 'idle' | 'busy' | 'blocked' | 'offline' | 'dead'  // 3.12
   capabilities: string[]
   model?: string
@@ -461,7 +470,7 @@ export interface ProjectMetrics {
 }
 
 export interface MACSState {
-  version: '3.0'
+  version: '3.0' | '4.1'
   project?: string
   updated_at: string
   last_event_seq: number
@@ -492,7 +501,7 @@ export interface AgentMessage {
 // ============================================================
 
 export interface MACSConfig {
-  version: '3.0'
+  version: '3.0' | '4.1'
   project: string
   created_at: string
   settings: {
@@ -503,5 +512,6 @@ export interface MACSConfig {
     generate_human_readable: boolean    // Default: true
     conflict_resolution: 'last_write_wins' | 'manual'  // Default: last_write_wins
     max_concurrent_tasks_per_agent?: number  // Default: 3 (load balancing cap)
+    events_sharding?: boolean               // v5: per-agent event files (Default: false)
   }
 }

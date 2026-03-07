@@ -35,11 +35,11 @@ console.log('\n🧪 MACS Protocol v3.0 — Integration Test\n')
 // ── Init ──────────────────────────────────────────
 console.log('1. Init')
 const config = engine.init('test-project')
-assert(config.version === '3.0', 'Config version is 3.0')
+assert(config.version === '4.1', 'Config version is 4.1')
 assert(config.project === 'test-project', 'Project name correct')
 
 const state0 = engine.getState()
-assert(state0.version === '3.0', 'State version is 3.0')
+assert(state0.version === '4.1', 'State version is 4.1')
 assert(Object.keys(state0.tasks).length === 0, 'No tasks initially')
 
 // ── Register Agents ───────────────────────────────

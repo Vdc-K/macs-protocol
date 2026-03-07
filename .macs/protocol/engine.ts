@@ -1,17 +1,66 @@
 /**
- * MACS Protocol Engine v3.0
+ * MACS Protocol Engine v4.1
  *
  * Core: Append events → Rebuild state → Query state
  * All writes go to JSONL (append-only). State is a cached projection.
  */
 
-import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } from 'fs'
-import { join } from 'path'
+import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, readdirSync } from 'fs'
+import { join, resolve } from 'path'
+import { createRequire } from 'module'
 import type {
   TaskEvent, GlobalEvent, MACSState, TaskState, AgentState,
   AgentMessage, MACSConfig, LockState, ProjectMetrics,
   BlockedRecord, AgentStats
 } from './schema.js'
+import { MACS_SPEC_VERSION } from './schema.js'
+
+// ============================================================
+// Plugin System (4.1)
+// ============================================================
+
+export interface MACSPlugin {
+  name: string
+  version?: string
+  hooks?: {
+    onTaskCreated?: (task: TaskState) => void
+    onTaskCompleted?: (task: TaskState) => void
+    onTaskBlocked?: (task: TaskState) => void
+    onTaskReviewed?: (task: TaskState, result: 'approved' | 'rejected') => void
+    onAgentRegistered?: (agentId: string, capabilities: string[]) => void
+    onEscalation?: (task: TaskState) => void
+    onDeadAgent?: (agentId: string, reassignedTasks: string[]) => void
+  }
+}
+
+function loadPlugins(projectRoot: string): MACSPlugin[] {
+  const pluginsDir = join(projectRoot, '.macs', 'plugins')
+  if (!existsSync(pluginsDir)) return []
+
+  const plugins: MACSPlugin[] = []
+  let entries: string[]
+  try {
+    entries = readdirSync(pluginsDir)
+  } catch {
+    return []
+  }
+
+  for (const entry of entries) {
+    if (!entry.endsWith('.js') && !entry.endsWith('.cjs')) continue
+    try {
+      const pluginPath = resolve(join(pluginsDir, entry))
+      const req = createRequire(import.meta.url)
+      const mod = req(pluginPath)
+      const plugin: MACSPlugin = mod.default || mod
+      if (plugin && plugin.name) {
+        plugins.push(plugin)
+      }
+    } catch {
+      // skip invalid plugins
+    }
+  }
+  return plugins
+}
 
 // ============================================================
 // File I/O — JSONL read/write
@@ -62,12 +111,33 @@ export class MACSEngine {
   private protocolDir: string
   private syncDir: string
   private humanDir: string
+  private plugins: MACSPlugin[]
 
   constructor(projectRoot: string) {
     this.dir = join(projectRoot, '.macs')
     this.protocolDir = join(this.dir, 'protocol')
     this.syncDir = join(this.dir, 'sync', 'inbox')
     this.humanDir = join(this.dir, 'human')
+    this.plugins = loadPlugins(projectRoot)
+  }
+
+  // Plugin access
+  getPlugins(): MACSPlugin[] { return this.plugins }
+
+  registerPlugin(plugin: MACSPlugin): void {
+    this.plugins.push(plugin)
+  }
+
+  private emit<K extends keyof Required<MACSPlugin>['hooks']>(
+    hook: K,
+    ...args: Parameters<NonNullable<Required<MACSPlugin>['hooks'][K]>>
+  ): void {
+    for (const plugin of this.plugins) {
+      const fn = plugin.hooks?.[hook] as ((...a: any[]) => void) | undefined
+      if (fn) {
+        try { fn(...args) } catch { /* plugin errors don't crash engine */ }
+      }
+    }
   }
 
   // ----------------------------------------------------------
@@ -92,7 +162,7 @@ export class MACSEngine {
 
     // Config
     const config: MACSConfig = {
-      version: '3.0',
+      version: '4.1',
       project: projectName,
       created_at: new Date().toISOString(),
       settings: {
@@ -118,16 +188,37 @@ export class MACSEngine {
 
   appendTaskEvent(event: Omit<TaskEvent, 'seq'>): TaskEvent {
     const seq = getNextSeq(this.protocolDir)
-    const full = { ...event, seq } as TaskEvent
+    const full = { spec_version: MACS_SPEC_VERSION, ...event, seq } as TaskEvent
     appendJsonl(join(this.protocolDir, 'tasks.jsonl'), full)
     this.rebuildState()
+    // Plugin hooks
+    const state = this.getState()
+    const task = state.tasks[full.id]
+    if (task) {
+      if (full.type === 'task_created') this.emit('onTaskCreated', task)
+      else if (full.type === 'task_completed') this.emit('onTaskCompleted', task)
+      else if (full.type === 'task_blocked') this.emit('onTaskBlocked', task)
+      else if (full.type === 'task_escalated') this.emit('onEscalation', task)
+      else if (full.type === 'task_reviewed') {
+        const ev = full as import('./schema.js').TaskReviewedEvent
+        this.emit('onTaskReviewed', task, ev.data.result)
+      }
+    }
     return full
   }
 
   appendGlobalEvent(event: Omit<GlobalEvent, 'seq'>): GlobalEvent {
     const seq = getNextSeq(this.protocolDir)
-    const full = { ...event, seq } as GlobalEvent
-    appendJsonl(join(this.protocolDir, 'events.jsonl'), full)
+    const full = { spec_version: MACS_SPEC_VERSION, ...event, seq } as GlobalEvent
+    const config = readJson<import('./schema.js').MACSConfig>(join(this.dir, 'macs.json'))
+    if (config?.settings.events_sharding) {
+      // v5: per-agent shard — events/{agent-id}.jsonl
+      const shardDir = join(this.protocolDir, 'events')
+      mkdirSync(shardDir, { recursive: true })
+      appendJsonl(join(shardDir, `${event.by}.jsonl`), full)
+    } else {
+      appendJsonl(join(this.protocolDir, 'events.jsonl'), full)
+    }
     this.rebuildState()
     return full
   }
@@ -141,6 +232,16 @@ export class MACSEngine {
   }
 
   getGlobalEvents(): GlobalEvent[] {
+    const shardDir = join(this.protocolDir, 'events')
+    if (existsSync(shardDir)) {
+      // v5: merge all per-agent shards, sorted by seq
+      const files = readdirSync(shardDir).filter(f => f.endsWith('.jsonl'))
+      const all: GlobalEvent[] = []
+      for (const f of files) {
+        all.push(...readJsonl<GlobalEvent>(join(shardDir, f)))
+      }
+      return all.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))
+    }
     return readJsonl<GlobalEvent>(join(this.protocolDir, 'events.jsonl'))
   }
 
@@ -383,6 +484,8 @@ export class MACSEngine {
         case 'agent_registered': {
           agents[event.data.agent_id] = {
             id: event.data.agent_id,
+            instance_id: event.data.instance_id,
+            session_id: event.data.session_id,
             status: 'idle',
             capabilities: event.data.capabilities,
             model: event.data.model,
@@ -514,7 +617,7 @@ export class MACSEngine {
     }
 
     const state: MACSState = {
-      version: '3.0',
+      version: '4.1',
       updated_at: new Date().toISOString(),
       last_event_seq: lastSeq,
       tasks,
@@ -1033,6 +1136,7 @@ export class MACSEngine {
         },
       })
 
+      this.emit('onDeadAgent', agent.id, reassignedTasks)
       results.push({ agentId: agent.id, reassigned: reassignedTasks })
     }
 
@@ -1047,13 +1151,17 @@ export class MACSEngine {
     capabilities: string[]
     model?: string
     role?: string
+    instance_id?: string
+    session_id?: string
   }): void {
+    const instance_id = data.instance_id ?? `${agentId}-${Date.now()}`
     this.appendGlobalEvent({
       type: 'agent_registered',
       ts: new Date().toISOString(),
       by: agentId,
-      data: { agent_id: agentId, ...data },
+      data: { agent_id: agentId, instance_id, ...data },
     })
+    this.emit('onAgentRegistered', agentId, data.capabilities)
   }
 
   heartbeat(agentId: string, data: {
@@ -1138,6 +1246,258 @@ export class MACSEngine {
   // ----------------------------------------------------------
   // Impact Analysis
   // ----------------------------------------------------------
+
+  // ----------------------------------------------------------
+  // CI/CD Consistency Check (4.5)
+  // ----------------------------------------------------------
+
+  ciCheck(options: { staleHours?: number } = {}): {
+    ok: boolean
+    errors: { type: string; id?: string; message: string }[]
+    warnings: { type: string; id?: string; message: string }[]
+    summary: string
+  } {
+    const state = this.getState()
+    const errors: { type: string; id?: string; message: string }[] = []
+    const warnings: { type: string; id?: string; message: string }[] = []
+    const now = Date.now()
+    const staleMs = (options.staleHours ?? 2) * 60 * 60 * 1000
+
+    // 1. Stale in_progress tasks (no recent checkpoint)
+    for (const task of Object.values(state.tasks)) {
+      if (task.status === 'in_progress') {
+        const lastActivity = task.last_checkpoint_at || task.started_at
+        if (lastActivity && now - new Date(lastActivity).getTime() > staleMs) {
+          const hours = Math.floor((now - new Date(lastActivity).getTime()) / 3600000)
+          warnings.push({
+            type: 'stale_task',
+            id: task.id,
+            message: `${task.id} "${task.title}" in_progress ${hours}h without checkpoint`,
+          })
+        }
+      }
+    }
+
+    // 2. Dead agents with active tasks
+    for (const [agentId, agent] of Object.entries(state.agents)) {
+      if (agent.status === 'dead') {
+        const activeTasks = Object.values(state.tasks).filter(
+          t => t.assignee === agentId && ['in_progress', 'blocked'].includes(t.status)
+        )
+        if (activeTasks.length > 0) {
+          errors.push({
+            type: 'dead_agent_tasks',
+            id: agentId,
+            message: `Dead agent ${agentId} owns ${activeTasks.length} active task(s): ${activeTasks.map(t => t.id).join(', ')}. Run: macs reap`,
+          })
+        }
+      }
+    }
+
+    // 3. Escalation timeout exceeded
+    for (const task of Object.values(state.tasks)) {
+      if (task.status === 'pending_human' && task.escalated_at) {
+        const elapsed = now - new Date(task.escalated_at).getTime()
+        if (task.escalation_timeout_ms && elapsed > task.escalation_timeout_ms) {
+          errors.push({
+            type: 'escalation_timeout',
+            id: task.id,
+            message: `${task.id} escalation timeout exceeded (${Math.floor(elapsed / 60000)}min elapsed)`,
+          })
+        } else if (elapsed > 24 * 60 * 60 * 1000) {
+          warnings.push({
+            type: 'escalation_stale',
+            id: task.id,
+            message: `${task.id} pending_human for >24h`,
+          })
+        }
+      }
+    }
+
+    // 4. Reviews stale >4h
+    for (const task of Object.values(state.tasks)) {
+      if (task.status === 'review_required' && task.review_requested_at) {
+        const elapsed = now - new Date(task.review_requested_at).getTime()
+        if (elapsed > 4 * 60 * 60 * 1000) {
+          warnings.push({
+            type: 'review_stale',
+            id: task.id,
+            message: `${task.id} "${task.title}" awaiting review for ${Math.floor(elapsed / 3600000)}h`,
+          })
+        }
+      }
+    }
+
+    // 5. Broken dependencies
+    for (const task of Object.values(state.tasks)) {
+      for (const dep of task.depends) {
+        if (!state.tasks[dep]) {
+          errors.push({
+            type: 'broken_dependency',
+            id: task.id,
+            message: `${task.id} depends on non-existent task ${dep}`,
+          })
+        }
+      }
+    }
+
+    // 6. Circular dependencies
+    for (const task of Object.values(state.tasks)) {
+      if (this._hasCircularDep(task.id, task.depends, state.tasks, new Set())) {
+        errors.push({
+          type: 'circular_dependency',
+          id: task.id,
+          message: `${task.id} has a circular dependency chain`,
+        })
+      }
+    }
+
+    return {
+      ok: errors.length === 0,
+      errors,
+      warnings,
+      summary: `${errors.length} error(s), ${warnings.length} warning(s)`,
+    }
+  }
+
+  private _hasCircularDep(
+    start: string,
+    deps: string[],
+    allTasks: Record<string, TaskState>,
+    visited: Set<string>
+  ): boolean {
+    for (const dep of deps) {
+      if (dep === start) return true
+      if (visited.has(dep)) continue
+      visited.add(dep)
+      const depTask = allTasks[dep]
+      if (depTask && this._hasCircularDep(start, depTask.depends, allTasks, visited)) return true
+    }
+    return false
+  }
+
+  // ----------------------------------------------------------
+  // Template Market (4.4)
+  // ----------------------------------------------------------
+
+  static getTemplates(): Record<string, {
+    name: string
+    description: string
+    tags: string[]
+    tasks: Array<{
+      _ref: string
+      title: string
+      priority?: 'critical' | 'high' | 'medium' | 'low'
+      tags?: string[]
+      depends_on?: string[]
+      affects?: string[]
+      estimate_ms?: number
+      description?: string
+      requires_capabilities?: string[]
+    }>
+  }> {
+    return {
+      'saas-mvp': {
+        name: 'SaaS MVP',
+        description: 'Standard SaaS MVP: auth, API, DB, frontend, deploy',
+        tags: ['saas', 'web', 'fullstack'],
+        tasks: [
+          { _ref: 'db', title: 'Database schema & migrations', priority: 'critical', tags: ['backend', 'db'], affects: ['migrations/*', 'schema/*'], requires_capabilities: ['backend'], estimate_ms: 14400000 },
+          { _ref: 'auth', title: 'User authentication (JWT/OAuth)', priority: 'critical', tags: ['backend', 'auth'], depends_on: ['db'], affects: ['src/auth/*'], requires_capabilities: ['backend'], estimate_ms: 18000000 },
+          { _ref: 'api', title: 'REST API core endpoints', priority: 'high', tags: ['backend', 'api'], depends_on: ['db', 'auth'], affects: ['src/api/*'], requires_capabilities: ['backend'], estimate_ms: 28800000 },
+          { _ref: 'frontend', title: 'Frontend app scaffold', priority: 'high', tags: ['frontend'], affects: ['src/frontend/*', 'src/components/*'], requires_capabilities: ['frontend'], estimate_ms: 21600000 },
+          { _ref: 'ui-auth', title: 'Login/signup UI', priority: 'high', tags: ['frontend', 'auth'], depends_on: ['frontend', 'auth'], affects: ['src/components/auth/*'], requires_capabilities: ['frontend'], estimate_ms: 14400000 },
+          { _ref: 'ui-main', title: 'Main dashboard UI', priority: 'medium', tags: ['frontend'], depends_on: ['ui-auth', 'api'], affects: ['src/components/dashboard/*'], requires_capabilities: ['frontend'], estimate_ms: 21600000 },
+          { _ref: 'tests', title: 'Integration tests', priority: 'high', tags: ['testing'], depends_on: ['api', 'auth'], affects: ['tests/*'], requires_capabilities: ['testing'], estimate_ms: 14400000 },
+          { _ref: 'deploy', title: 'CI/CD & deployment config', priority: 'medium', tags: ['devops'], depends_on: ['tests'], affects: ['.github/workflows/*', 'Dockerfile'], requires_capabilities: ['devops'], estimate_ms: 10800000 },
+        ],
+      },
+      'api-service': {
+        name: 'API Service',
+        description: 'Standalone REST/GraphQL API service',
+        tags: ['api', 'backend'],
+        tasks: [
+          { _ref: 'schema', title: 'API schema & data models', priority: 'critical', tags: ['backend'], affects: ['src/models/*'], requires_capabilities: ['backend'], estimate_ms: 10800000 },
+          { _ref: 'endpoints', title: 'Core API endpoints', priority: 'critical', tags: ['backend', 'api'], depends_on: ['schema'], affects: ['src/routes/*', 'src/controllers/*'], requires_capabilities: ['backend'], estimate_ms: 28800000 },
+          { _ref: 'auth', title: 'API key / JWT authentication', priority: 'high', tags: ['backend', 'auth'], depends_on: ['schema'], affects: ['src/middleware/*'], requires_capabilities: ['backend'], estimate_ms: 14400000 },
+          { _ref: 'docs', title: 'OpenAPI / Swagger docs', priority: 'medium', tags: ['docs'], depends_on: ['endpoints'], affects: ['openapi.yaml', 'docs/*'], estimate_ms: 7200000 },
+          { _ref: 'tests', title: 'API integration tests', priority: 'high', tags: ['testing'], depends_on: ['endpoints', 'auth'], affects: ['tests/*'], requires_capabilities: ['testing'], estimate_ms: 10800000 },
+          { _ref: 'rate-limit', title: 'Rate limiting & security headers', priority: 'medium', tags: ['backend', 'security'], depends_on: ['auth'], affects: ['src/middleware/*'], requires_capabilities: ['backend'], estimate_ms: 7200000 },
+        ],
+      },
+      'data-pipeline': {
+        name: 'Data Pipeline',
+        description: 'ETL pipeline: ingest → transform → store → visualize',
+        tags: ['data', 'etl', 'analytics'],
+        tasks: [
+          { _ref: 'ingest', title: 'Data ingestion layer', priority: 'critical', tags: ['data', 'backend'], affects: ['src/ingest/*'], requires_capabilities: ['data', 'backend'], estimate_ms: 18000000 },
+          { _ref: 'transform', title: 'Data transformation pipeline', priority: 'critical', tags: ['data'], depends_on: ['ingest'], affects: ['src/transform/*'], requires_capabilities: ['data'], estimate_ms: 21600000 },
+          { _ref: 'storage', title: 'Data storage & schema', priority: 'high', tags: ['data', 'db'], depends_on: ['transform'], affects: ['src/storage/*', 'migrations/*'], requires_capabilities: ['data', 'backend'], estimate_ms: 14400000 },
+          { _ref: 'api', title: 'Query API', priority: 'medium', tags: ['backend', 'api'], depends_on: ['storage'], affects: ['src/api/*'], requires_capabilities: ['backend'], estimate_ms: 14400000 },
+          { _ref: 'viz', title: 'Visualization dashboard', priority: 'low', tags: ['frontend', 'data'], depends_on: ['api'], affects: ['src/dashboard/*'], requires_capabilities: ['frontend', 'data'], estimate_ms: 21600000 },
+          { _ref: 'monitor', title: 'Pipeline monitoring & alerts', priority: 'medium', tags: ['devops', 'data'], depends_on: ['storage'], affects: ['src/monitoring/*'], estimate_ms: 10800000 },
+        ],
+      },
+      'cli-tool': {
+        name: 'CLI Tool',
+        description: 'Command-line tool with install script and docs',
+        tags: ['cli', 'tooling'],
+        tasks: [
+          { _ref: 'core', title: 'Core CLI logic', priority: 'critical', tags: ['backend'], affects: ['src/*', 'bin/*'], requires_capabilities: ['backend'], estimate_ms: 18000000 },
+          { _ref: 'commands', title: 'Command definitions & help text', priority: 'high', tags: ['backend'], depends_on: ['core'], affects: ['src/commands/*'], requires_capabilities: ['backend'], estimate_ms: 14400000 },
+          { _ref: 'config', title: 'Config file & env handling', priority: 'medium', tags: ['backend'], depends_on: ['core'], affects: ['src/config/*'], requires_capabilities: ['backend'], estimate_ms: 7200000 },
+          { _ref: 'tests', title: 'CLI tests', priority: 'high', tags: ['testing'], depends_on: ['commands'], affects: ['tests/*'], requires_capabilities: ['testing'], estimate_ms: 10800000 },
+          { _ref: 'install', title: 'Install script (cross-platform)', priority: 'medium', tags: ['devops'], depends_on: ['core'], affects: ['install.sh', 'scripts/*'], estimate_ms: 7200000 },
+          { _ref: 'docs', title: 'README & usage docs', priority: 'medium', tags: ['docs'], depends_on: ['commands'], affects: ['README.md', 'docs/*'], estimate_ms: 5400000 },
+        ],
+      },
+    }
+  }
+
+  applyTemplate(templateName: string, agentId: string): { taskIds: string[]; count: number } {
+    const templates = MACSEngine.getTemplates()
+    const template = templates[templateName]
+    if (!template) {
+      throw new Error(`Template "${templateName}" not found. Available: ${Object.keys(templates).join(', ')}`)
+    }
+
+    const idMap: Record<string, string> = {}
+    const taskIds: string[] = []
+
+    // Pass 1: create all tasks without dependencies
+    for (const taskDef of template.tasks) {
+      const task = this.createTask(agentId, {
+        title: taskDef.title,
+        priority: taskDef.priority || 'medium',
+        tags: taskDef.tags || [],
+        depends: [],
+        affects: taskDef.affects || [],
+        estimate_ms: taskDef.estimate_ms,
+        description: taskDef.description,
+        requires_capabilities: taskDef.requires_capabilities,
+      })
+      idMap[taskDef._ref] = task.id
+      taskIds.push(task.id)
+    }
+
+    // Pass 2: wire up dependencies
+    for (const taskDef of template.tasks) {
+      if (taskDef.depends_on && taskDef.depends_on.length > 0) {
+        const depIds = taskDef.depends_on.map(ref => idMap[ref]).filter(Boolean)
+        if (depIds.length > 0) {
+          this.appendTaskEvent({
+            type: 'task_updated',
+            id: idMap[taskDef._ref],
+            ts: new Date().toISOString(),
+            by: agentId,
+            data: { field: 'depends', from: [], to: depIds },
+          })
+        }
+      }
+    }
+
+    return { taskIds, count: taskIds.length }
+  }
 
   analyzeImpact(file: string): {
     affected_tasks: TaskState[]
