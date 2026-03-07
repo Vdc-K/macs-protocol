@@ -1,0 +1,55 @@
+# MACS Daily Report Workflow
+# Generates a daily summary of project status and posts to GitHub Issues or Slack.
+#
+# Setup:
+#   1. Copy to .github/workflows/macs-daily-report.yml
+#   2. Optional: set SLACK_WEBHOOK_URL secret for Slack notifications
+#   3. Schedule runs every day at 9am UTC
+
+name: MACS Daily Report
+
+on:
+  schedule:
+    - cron: '0 9 * * 1-5'  # Mon-Fri 9am UTC
+  workflow_dispatch:
+
+jobs:
+  daily-report:
+    name: Generate daily MACS report
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install MACS
+        run: npm install -g macs-protocol
+
+      - name: Generate status report
+        run: |
+          echo "# MACS Daily Report — $(date -u +%Y-%m-%d)" > report.md
+          echo "" >> report.md
+          echo "## Project Status" >> report.md
+          macs status >> report.md || true
+          echo "" >> report.md
+          echo "## CI Check" >> report.md
+          macs ci 2>&1 >> report.md || true
+          cat report.md
+
+      - name: Post to GitHub Step Summary
+        run: cat report.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Post to Slack (optional)
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          REPORT=$(cat report.md | head -50)
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-type: application/json' \
+            --data "{\"text\": \"$(echo "$REPORT" | sed 's/"/\\"/g' | tr '\n' '\\n')\"}"

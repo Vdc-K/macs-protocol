@@ -1,0 +1,68 @@
+# MACS CI/CD Workflow (4.5)
+# Runs MACS consistency checks on every push and PR.
+#
+# Setup:
+#   1. Copy to .github/workflows/macs-ci.yml in your project
+#   2. Adjust 'stale-hours' threshold if needed
+#   3. Done — no secrets required
+
+name: MACS Consistency Check
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - '.macs/**'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - '.macs/**'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  macs-ci:
+    name: MACS CI Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install MACS
+        run: npm install -g macs-protocol
+
+      - name: Run MACS consistency check
+        run: |
+          macs ci --stale-hours 4 --json > macs-ci-report.json
+          cat macs-ci-report.json | jq .
+          # Exit code 1 if errors found (non-zero = CI fails)
+          node -e "
+            const r = JSON.parse(require('fs').readFileSync('macs-ci-report.json'));
+            if (!r.ok) {
+              console.error('MACS CI failed:', r.summary);
+              process.exit(1);
+            }
+            console.log('MACS CI passed:', r.summary);
+          "
+
+      - name: Upload CI report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macs-ci-report
+          path: macs-ci-report.json
+          retention-days: 14
+
+      - name: Post summary
+        if: always()
+        run: |
+          echo "## MACS CI Report" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+          cat macs-ci-report.json | jq '{ok, summary, error_count: (.errors | length), warning_count: (.warnings | length)}' >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

@@ -899,9 +899,108 @@ switch (command) {
     break
   }
 
+  case 'ci': {
+    // 4.5: CI/CD consistency check
+    const staleHours = getArg('--stale-hours') ? parseInt(getArg('--stale-hours')!, 10) : 2
+    const jsonOutput = hasFlag('--json')
+    const result = engine.ciCheck({ staleHours })
+
+    if (jsonOutput) {
+      console.log(JSON.stringify(result, null, 2))
+    } else {
+      const statusIcon = result.ok ? '✅' : '❌'
+      console.log(`\n${statusIcon} MACS CI Check — ${result.summary}\n`)
+
+      if (result.errors.length > 0) {
+        console.log('Errors (must fix):')
+        for (const issue of result.errors) {
+          console.log(`  ❌ [${issue.type}] ${issue.message}`)
+        }
+        console.log('')
+      }
+
+      if (result.warnings.length > 0) {
+        console.log('Warnings:')
+        for (const issue of result.warnings) {
+          console.log(`  ⚠️  [${issue.type}] ${issue.message}`)
+        }
+        console.log('')
+      }
+
+      if (result.ok && result.warnings.length === 0) {
+        console.log('  All checks passed. No issues found.')
+      }
+    }
+
+    if (!result.ok) process.exit(1)
+    break
+  }
+
+  case 'template': {
+    // 4.4: Template market
+    const subCmd = args[1]
+    const templates = MACSEngine.getTemplates()
+
+    if (!subCmd || subCmd === 'list') {
+      console.log('\nMACS Template Market\n')
+      for (const [key, tmpl] of Object.entries(templates)) {
+        const taskCount = tmpl.tasks.length
+        const tags = tmpl.tags.join(', ')
+        console.log(`  ${key.padEnd(16)} ${tmpl.name.padEnd(20)} ${taskCount} tasks  [${tags}]`)
+        console.log(`                   ${tmpl.description}`)
+        console.log('')
+      }
+      console.log('Usage: macs template use <name> --agent <id>')
+    } else if (subCmd === 'use') {
+      const templateName = args[2]
+      const agentId = getArg('--agent') || 'system'
+      if (!templateName) {
+        console.error('Usage: macs template use <name> --agent <id>')
+        process.exit(1)
+      }
+      try {
+        const { taskIds, count } = engine.applyTemplate(templateName, agentId)
+        const tmpl = templates[templateName]
+        autoGenerate()
+        console.log(`\n✅ Template "${tmpl.name}" applied — ${count} tasks created:\n`)
+        for (const id of taskIds) {
+          const state = engine.getState()
+          const task = state.tasks[id]
+          const deps = task.depends.length > 0 ? ` (depends: ${task.depends.join(', ')})` : ''
+          const caps = task.requires_capabilities?.length ? ` [needs: ${task.requires_capabilities.join(', ')}]` : ''
+          console.log(`  ${id}  ${task.title}${deps}${caps}`)
+        }
+        console.log(`\nNext: macs swarm --agents 4 --simulate`)
+      } catch (err: any) {
+        console.error(`❌ ${err.message}`)
+        process.exit(1)
+      }
+    } else if (subCmd === 'info') {
+      const templateName = args[2]
+      if (!templateName || !templates[templateName]) {
+        console.error(`Template "${templateName}" not found. Run: macs template list`)
+        process.exit(1)
+      }
+      const tmpl = templates[templateName]
+      console.log(`\n${tmpl.name} — ${tmpl.description}\n`)
+      console.log(`Tasks (${tmpl.tasks.length}):`)
+      for (const t of tmpl.tasks) {
+        const deps = t.depends_on?.length ? ` → depends: ${t.depends_on.join(', ')}` : ''
+        const caps = t.requires_capabilities?.length ? ` [${t.requires_capabilities.join('/')}]` : ''
+        const hrs = t.estimate_ms ? ` ~${Math.round(t.estimate_ms / 3600000)}h` : ''
+        console.log(`  ${(t.priority || 'medium').padEnd(8)} ${t.title}${caps}${hrs}${deps}`)
+      }
+    } else {
+      console.error(`Unknown subcommand: macs template ${subCmd}`)
+      console.error('Usage: macs template [list|use <name>|info <name>]')
+      process.exit(1)
+    }
+    break
+  }
+
   default: {
     console.log(`
-MACS Protocol v3.1 — Git for AI Agents
+MACS Protocol v4.0 — Git for AI Agents
 
 Usage:
   macs boot --agent <id> [flags]            ★ Session start: catch up + get next task
@@ -929,11 +1028,19 @@ Usage:
   macs inbox <agent-id>                     Check agent inbox
   macs send <from> <to> <msg>               Send a message
   macs generate                             Regenerate human/ Markdown
+  macs ci [--stale-hours N] [--json]        CI/CD consistency check (4.5)
+  macs template [list|use <name>|info <name>]  Project templates (4.4)
 
 Swarm examples:
   macs swarm --agents 4 --simulate                         4 auto-named agents
   macs swarm --agents "opus:planner|sonnet:backend|haiku:qa" --simulate
   macs swarm --agents 3 --capabilities backend,testing     real agents (no simulate)
+
+Template examples:
+  macs template list                        List available templates
+  macs template use saas-mvp --agent lead   Apply SaaS MVP template (8 tasks)
+  macs template use api-service --agent pm  Apply API service template
+  macs template info data-pipeline          Show template details
 `)
     break
   }
