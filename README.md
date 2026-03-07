@@ -5,7 +5,7 @@
 > **MACS keeps your agents in sync.** No servers, no setup, just files + Git.
 
 [![npm](https://img.shields.io/npm/v/macs-protocol)](https://www.npmjs.com/package/macs-protocol)
-[![tests](https://img.shields.io/badge/tests-111%20passing-brightgreen)](#)
+[![tests](https://img.shields.io/badge/tests-123%20passing-brightgreen)](#)
 [![license](https://img.shields.io/badge/license-MIT-blue)](#license)
 [![GitHub Stars](https://img.shields.io/github/stars/Vdc-K/macs-protocol?style=social)](https://github.com/Vdc-K/macs-protocol/stargazers)
 
@@ -41,12 +41,20 @@ Agent-003 changes the database schema
 ├── protocol/          ← Agents read/write here (JSONL, fast, no conflicts)
 │   ├── tasks.jsonl    # Task lifecycle events (append-only)
 │   ├── events.jsonl   # All changes, decisions, conflicts
+│   ├── events/        # Per-agent shards (optional, events_sharding: true)
 │   ├── state.json     # Current snapshot (auto-rebuilt)
 │   └── agents.json    # Who's here, what can they do
 │
 ├── sync/inbox/        ← Agent-to-agent messaging
 │   ├── agent-001/
 │   └── agent-002/
+│
+├── transport/         ← HTTP Transport API (v5, for remote/cloud agents)
+│   ├── server.ts      # REST + SSE server (port 7474)
+│   └── storage.ts     # StorageBackend abstraction
+│
+├── plugins/           ← Auto-loaded plugin hooks
+│   └── my-plugin.js
 │
 └── human/             ← Auto-generated Markdown (for you to read)
     ├── TASK.md
@@ -111,12 +119,12 @@ Git tracks file changes. MACS tracks **who's doing what, what depends on what, a
 **Event Sourcing** — Every action is an append-only event. No conflicts, full history, any state can be rebuilt.
 
 ```jsonl
-{"type":"task_created","id":"T-001","ts":"...","by":"lead-opus","data":{"title":"Add auth"}}
-{"type":"task_assigned","id":"T-001","ts":"...","by":"lead-opus","data":{"assignee":"engineer-sonnet"}}
-{"type":"task_completed","id":"T-001","ts":"...","by":"engineer-sonnet","data":{"artifacts":["src/auth.ts"]}}
+{"spec_version":"4.1","type":"task_created","id":"T-001","ts":"...","by":"lead-opus","data":{"title":"Add auth"}}
+{"spec_version":"4.1","type":"task_assigned","id":"T-001","ts":"...","by":"lead-opus","data":{"assignee":"engineer-sonnet"}}
+{"spec_version":"4.1","type":"task_completed","id":"T-001","ts":"...","by":"engineer-sonnet","data":{"artifacts":["src/auth.ts"]}}
 ```
 
-**Capability Routing (3.1)** — Tasks declare `requires_capabilities`. Only capable agents can claim them. Swarm simulation is capability-aware.
+**Capability Routing** — Tasks declare `requires_capabilities`. Only capable agents can claim them.
 
 ```bash
 macs create "Train embedding model" --requires ml,gpu
@@ -131,27 +139,62 @@ macs block T-007 --reason "need OAuth decision" \
   --done "schema designed" --issue "refresh token unspecified"
 ```
 
-**Review Chain (3.10)** — Agents can request peer review before marking done. Approved → completed. Rejected → back to in_progress.
+**Review Chain** — Agents can request peer review before marking done. Approved → completed. Rejected → back to in_progress.
 
 ```bash
 macs review T-009 --agent lead-opus --result approved --note "LGTM"
 ```
 
-**Escalation (3.11)** — Blocked on a human decision? Escalate and optionally auto-resume after timeout.
+**Escalation** — Blocked on a human decision? Escalate and optionally auto-resume after timeout.
 
 ```bash
 macs escalate T-012 --reason "GDPR compliance sign-off needed" --to cto --timeout 60
 ```
 
-**Dead Agent Reaping (3.12)** — Silent agents are detected and their tasks reassigned automatically.
+**Dead Agent Reaping** — Silent agents are detected and their tasks reassigned automatically.
 
 ```bash
 macs reap --threshold 45   # mark agents silent > 45 min as dead, reassign tasks
 ```
 
-**Drift Detection** — `macs drift` surfaces tasks whose agents haven't checkpointed recently.
+**Smart Drift Detection** — Identifies agents spinning in circles (same file edited 3+ times) or drifting off-goal.
 
 **Swarm Orchestration** — `macs swarm` auto-distributes tasks across N agents in dependency-ordered rounds.
+
+**Plugin System (v4)** — Drop a `.js` file in `.macs/plugins/` to hook into any lifecycle event. Slack, webhooks, custom triggers — zero config.
+
+```js
+export default {
+  hooks: {
+    onTaskCompleted: (task) => notifySlack(`✅ ${task.title} done`),
+    onEscalation: (task) => page_oncall(task),
+  }
+}
+```
+
+**MCP Bridge (v4)** — Connect Claude Desktop directly to your MACS project. 14 MCP tools: create tasks, claim work, review, escalate — all from natural language.
+
+**Templates (v4)** — Bootstrap a full multi-agent project in one command.
+
+```bash
+macs template use saas-mvp      # 12 tasks, auth + API + dashboard + billing
+macs template use data-pipeline # ingest → process → store
+```
+
+**CI/CD Integration (v4)** — Detect stale tasks, dead agents, and blocked work in your pipeline.
+
+```bash
+macs ci --stale-hours 24 --json   # exits 1 if project is unhealthy
+```
+
+**HTTP Transport API (v5)** — Run a lightweight server so cloud agents, CI runners, and containers can participate without filesystem access.
+
+```bash
+npx tsx .macs/transport/server.ts --project . --port 7474
+# GET /macs/state  POST /macs/events/task  GET /macs/stream (SSE)
+```
+
+**Formal Protocol Spec (v4.1)** — [MACS-SPEC.md](./MACS-SPEC.md) defines the full protocol: event schema, state rebuild algorithm, agent lifecycle, and conformance requirements. Build your own conforming implementation.
 
 **Human-Readable Output** — `human/` directory auto-generates Markdown from JSONL. You never lose readability.
 
@@ -193,9 +236,11 @@ Three layers, complementary, not competing.
 ## Roadmap
 
 - [x] **v3.0** — JSONL Protocol, Event Sourcing, Agent SDK, inbox messaging, swarm, forced handoff, drift detection, task decomposition
-- [x] **v3.1** — Capability routing, review chain, escalation protocol, dead agent reaping (111 tests)
-- [ ] **v3.2** — Smart drift analysis, auto-escalation triggers
-- [ ] **v4.0** — A2A/MCP bridge, hosted coordination layer
+- [x] **v3.1** — Capability routing, load balancing, review chain, escalation protocol, dead agent reaping
+- [x] **v3.2** — Smart drift analysis (spin detection + goal deviation), Dashboard v2 (real-time SSE + D3 graph)
+- [x] **v4.0** — Plugin system, MCP bridge (14 tools), template market, CI/CD integration (123 tests)
+- [x] **v4.1** — Formal protocol spec (MACS-SPEC.md), `spec_version` in all events, agent `instance_id`/`session_id`
+- [x] **v5.0** — HTTP Transport API (REST + SSE), per-agent event sharding, StorageBackend abstraction
 
 ## License
 
@@ -231,12 +276,16 @@ Agent-003 改了数据库 schema
 ├── protocol/          ← Agent 读写这里（JSONL，快，无冲突）
 │   ├── tasks.jsonl    # 任务生命周期事件（只追加）
 │   ├── events.jsonl   # 所有变更、决策、冲突
+│   ├── events/        # 每 agent 独立分片（events_sharding: true 时）
 │   ├── state.json     # 当前状态快照（自动重建）
 │   └── agents.json    # 谁在、能做什么
 │
 ├── sync/inbox/        ← Agent 间通信
 │   ├── agent-001/
 │   └── agent-002/
+│
+├── transport/         ← HTTP Transport API（v5，云端 agent 用）
+├── plugins/           ← 插件目录，自动加载
 │
 └── human/             ← 自动生成的 Markdown（给人看）
     ├── TASK.md
@@ -254,14 +303,21 @@ npx macs init
 
 ## 核心特性
 
-- **Event Sourcing** — 每个操作都是只追加事件，无冲突，完整历史
-- **能力路由（3.1）** — 任务声明所需能力，只有匹配的 agent 能认领
+- **Event Sourcing** — 每个操作都是只追加事件，无冲突，完整历史，任意状态可重建
+- **能力路由** — 任务声明所需能力（`requires_capabilities`），只有匹配的 agent 能认领
+- **负载均衡** — 自动均衡 agent 工作量，claimTask 上限可配（默认 3 任务/agent）
 - **强制 handoff** — block/cancel 必须留下 `--next` 交接记录，上下文不丢
-- **Review Chain（3.10）** — 支持同行审查，approved → 完成，rejected → 返回修改
-- **升级协议（3.11）** — 遇到人类决策瓶颈时升级，支持超时自动恢复
-- **死 Agent 重分配（3.12）** — 心跳超时的 agent 自动标记为 dead，任务重新分配
-- **漂移检测** — 静默任务自动标记，防止 agent 卡死无人知晓
+- **Review Chain** — 支持同行审查，approved → 完成，rejected → 返回修改
+- **升级协议** — 遇到人类决策瓶颈时升级，支持超时自动恢复
+- **死 Agent 重分配** — 心跳超时的 agent 自动标记为 dead，任务重新分配
+- **智能漂移检测** — 识别"转圈"（同文件反复改）和"方向偏离"，自动触发介入
 - **Swarm** — `macs swarm --agents N` 按依赖轮次自动分配任务
+- **插件系统（v4）** — `.macs/plugins/*.js` 自动加载，7 个 hooks，零配置扩展
+- **MCP 桥接（v4）** — 接 Claude Desktop，14 个 MCP tools，自然语言操作 MACS
+- **模板市场（v4）** — `macs template use saas-mvp` 一键生成完整任务树
+- **CI/CD（v4）** — `macs ci` 检测僵尸任务和死 agent，GitHub Actions 模板开箱即用
+- **HTTP Transport API（v5）** — 云端 agent 无需访问文件系统即可参与协作（REST + SSE）
+- **正式协议规范（v4.1）** — [MACS-SPEC.md](./MACS-SPEC.md)，任何人可实现合规的 MACS 引擎
 - **人类可读** — `human/` 目录自动从 JSONL 生成 Markdown
 
 ## 定位
