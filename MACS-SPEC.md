@@ -1,8 +1,8 @@
-# MACS Protocol Specification v4.1
+# MACS Protocol Specification v5.0
 
 > **Status**: Active
-> **Version**: 4.1
-> **Supersedes**: v3.0
+> **Version**: 5.0
+> **Supersedes**: v4.1
 
 ---
 
@@ -284,6 +284,7 @@ This note is stored in `task.handoff_note` and displayed by `macs boot` to the i
 | `3.0` | Initial JSONL Event Sourcing protocol |
 | `4.0` | Plugin system, MCP bridge, CI/CD, templates |
 | `4.1` | `spec_version` in events, `instance_id`/`session_id` in agents, formal spec |
+| `5.0` | HTTP Transport API (REST + SSE), per-agent event sharding, `StorageBackend` abstraction |
 
 ---
 

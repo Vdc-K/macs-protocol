@@ -1,15 +1,68 @@
-# 变更记录
+# Changelog
 
-> **维护规则**：只保留最近 2 周。旧记录移到 `archive/CHANGELOG-YYYY-MM.md`
+All notable changes to MACS are documented here.
 
-## 格式
-```
-- [类型] 描述（一句话）- by {model}@{session前6位} #标签
-```
+---
 
-**类型**：`✨新增` `🐛修复` `♻️重构` `📝文档` `⚡️性能` `🔧配置` `🗑️清理`
+## 2026-03-06
 
-**常用标签**：`#运维` `#开发` `#文档` `#skill开发` `#调试` `#部署` `#设计`
+### v5.0.0 — Distributed Ready
+
+- [✨ feat] **HTTP Transport API**: REST + SSE server (port 7474) for cloud/CI agents without filesystem access
+- [✨ feat] **StorageBackend abstraction**: swap filesystem for Redis, HTTP, or custom backends
+- [✨ feat] **Per-agent event sharding**: `events_sharding: true` distributes writes to `protocol/events/{agent-id}.jsonl`, eliminates single-file bottleneck at 50+ concurrent agents
+- [✨ feat] **Formal Protocol Spec**: `MACS-SPEC.md` — event schema, state rebuild algorithm, agent lifecycle, conformance requirements (v4.1)
+- [✨ feat] **`spec_version` in all events**: every event now carries the protocol version that wrote it
+- [✨ feat] **Agent `instance_id` + `session_id`**: stable logical identity (`agent_id`) separate from per-launch ID
+- [✨ feat] v4 CLI commands: `macs review`, `macs escalate`, `macs reap`, `macs smart-drift`, `macs workload`, `macs decompose`, `macs checkpoint`
+- [✨ feat] Platform adapters: Cursor, Aider, OpenClaw, Ollama, MCP, plugins
+- [✨ feat] GitHub Actions templates for CI/CD integration
+
+---
+
+## 2026-03-05
+
+### v3.2 — Phase 3: Smart Coordination
+
+- [✨ feat] **Smart drift analysis**: spin detection (same file edited 3+ times) + goal deviation scoring
+- [✨ feat] **Load balancing**: `max_concurrent_tasks_per_agent` enforced on `claimTask()`; `macs workload` shows distribution
+- [✨ feat] **Dashboard v2**: real-time SSE push + D3.js force graph for agent/task relationships
+- [✨ feat] Animated SVG terminal demo
+
+---
+
+## 2026-03-04
+
+### v3.1 — Capability Routing & Self-Governance
+
+- [✨ feat] **Capability routing**: tasks declare `requires_capabilities`, only matching agents can claim
+- [✨ feat] **Review chain**: `macs review --result approve|reject` — rejected tasks return to `in_progress`
+- [✨ feat] **Escalation protocol**: `macs escalate` — blocked on human decision with optional auto-resume timeout
+- [✨ feat] **Dead agent reaping**: `macs reap` — heartbeat timeout → `agent_dead` → tasks auto-reassigned
+- [🐛 fix] bin path and repository URL in package.json
+
+---
+
+## 2026-03-02
+
+### v3.0 — JSONL Event Sourcing (Protocol Rewrite)
+
+Core architecture rewrite: Markdown documents → JSONL append-only event log.
+
+- [✨ feat] **Event Sourcing**: all state changes are immutable JSONL events; `state.json` is a derived snapshot
+- [✨ feat] **Agent SDK**: `registerAgent`, `claimTask`, `startTask`, `completeTask`, `blockTask`, `cancelTask`
+- [✨ feat] **Inbox messaging**: per-agent JSONL message queues at `sync/inbox/{agent-id}/`
+- [✨ feat] **`macs boot`**: session start — register → check inbox → show status → recommend next task
+- [✨ feat] **Forced handoff**: `block`/`cancel` require `--next` note; context never lost between sessions
+- [✨ feat] **Swarm orchestration**: `macs swarm` auto-distributes tasks across N agents in dependency-ordered rounds
+- [✨ feat] **Task decomposition**: `macs decompose` splits a task into subtasks; parent auto-completes when all children done
+- [✨ feat] **Dependency resolution**: `claimTask()` enforces that all `depends` tasks are `completed` first
+- [✨ feat] **Drift detection**: `macs drift` surfaces tasks with no heartbeat activity
+- [✨ feat] **Human-readable output**: `human/` directory auto-generates Markdown from JSONL for human review
+- [✨ feat] **Plugin system v4**: drop `.js` in `.macs/plugins/` to hook any lifecycle event (Slack, webhooks, etc.)
+- [✨ feat] **MCP bridge**: 14 MCP tools — connect Claude Desktop to your MACS project via natural language
+- [✨ feat] **Template market**: `macs template use saas-mvp` — bootstrap full multi-agent task trees in one command
+- [✨ feat] **CI/CD integration**: `macs ci` — detect stale tasks, dead agents, blocked work; exits 1 if unhealthy
 
 ---
 
