@@ -332,7 +332,19 @@ npx macs init
 - **CI/CD（v4）** — `macs ci` 检测僵尸任务和死 agent，GitHub Actions 模板开箱即用
 - **HTTP Transport API（v5）** — 云端 agent 无需访问文件系统即可参与协作（REST + SSE）
 - **正式协议规范（v4.1）** — [MACS-SPEC.md](./MACS-SPEC.md)，任何人可实现合规的 MACS 引擎
+- **Skill 市场（v5.3）** — `macs skill install <name>` 从社区注册表或 GitHub 直接安装 Claude Code skill
 - **人类可读** — `human/` 目录自动从 JSONL 生成 Markdown
+
+## Skill 市场
+
+```bash
+macs skill list                          # 浏览社区注册的 skills
+macs skill install knowledge-graph       # 从注册表安装
+macs skill install github:user/repo      # 从 GitHub 直接安装
+macs skill search graph                  # 关键词搜索
+```
+
+安装后 skill 自动放入 `.claude/skills/`，重启 Claude Code 即可使用。想分享自己的 skill？向 [skills/registry.json](./skills/registry.json) 提 PR。
 
 ## 定位
 
