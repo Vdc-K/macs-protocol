@@ -1,0 +1,20 @@
+{
+  "name": "macs-protocol",
+  "version": "5.2.0",
+  "description": "MACS — Git for AI Agents. Multi-agent work coordination via JSONL Event Sourcing. Capability routing, review chain, escalation, dead agent reaping.",
+  "author": {
+    "name": "MACS Community",
+    "email": "macs@vdc-k.dev"
+  },
+  "homepage": "https://github.com/Vdc-K/macs-protocol",
+  "repository": "https://github.com/Vdc-K/macs-protocol",
+  "license": "MIT",
+  "keywords": [
+    "multi-agent",
+    "coordination",
+    "event-sourcing",
+    "collaboration",
+    "task-management"
+  ],
+  "skills": "./skills/"
+}
