@@ -174,6 +174,17 @@ export default {
 
 **MCP Bridge (v4)** — Connect Claude Desktop directly to your MACS project. 14 MCP tools: create tasks, claim work, review, escalate — all from natural language.
 
+**Skill Marketplace (v5.3)** — Install Claude Code skills directly from the community registry or any GitHub repo.
+
+```bash
+macs skill list                          # browse available skills
+macs skill install knowledge-graph       # install from registry
+macs skill install github:user/repo      # install any skill from GitHub
+macs skill search graph                  # search by keyword
+```
+
+Skills install to `.claude/skills/` and are auto-loaded by Claude Code on next launch. Submit your skill to the registry via PR to [skills/registry.json](./skills/registry.json).
+
 **Templates (v4)** — Bootstrap a full multi-agent project in one command.
 
 ```bash
@@ -241,6 +252,9 @@ Three layers, complementary, not competing.
 - [x] **v4.0** — Plugin system, MCP bridge (14 tools), template market, CI/CD integration (123 tests)
 - [x] **v4.1** — Formal protocol spec (MACS-SPEC.md), `spec_version` in all events, agent `instance_id`/`session_id`
 - [x] **v5.0** — HTTP Transport API (REST + SSE), per-agent event sharding, StorageBackend abstraction
+- [x] **v5.1** — Easy mode CLI (`macs add`, auto-claim `macs start`), simplified help
+- [x] **v5.2** — Superpowers plan import (`macs import-plan`), PACEflow hooks (`macs install-hooks`)
+- [x] **v5.3** — Skill Marketplace (`macs skill install/list/search`), community registry
 
 ## License
 
