@@ -1,5 +1,5 @@
 /**
- * MACS Protocol Engine v3.0
+ * MACS Protocol Engine v4.1
  *
  * Core: Append events → Rebuild state → Query state
  * All writes go to JSONL (append-only). State is a cached projection.
@@ -7,6 +7,7 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { createRequire } from 'module';
+import { MACS_SPEC_VERSION } from './schema.js';
 function loadPlugins(projectRoot) {
     const pluginsDir = join(projectRoot, '.macs', 'plugins');
     if (!existsSync(pluginsDir))
@@ -126,7 +127,7 @@ export class MACSEngine {
             writeFileSync(eventsFile, '', 'utf-8');
         // Config
         const config = {
-            version: '3.0',
+            version: '4.1',
             project: projectName,
             created_at: new Date().toISOString(),
             settings: {
@@ -148,7 +149,7 @@ export class MACSEngine {
     // ----------------------------------------------------------
     appendTaskEvent(event) {
         const seq = getNextSeq(this.protocolDir);
-        const full = { ...event, seq };
+        const full = { spec_version: MACS_SPEC_VERSION, ...event, seq };
         appendJsonl(join(this.protocolDir, 'tasks.jsonl'), full);
         this.rebuildState();
         // Plugin hooks
@@ -172,8 +173,17 @@ export class MACSEngine {
     }
     appendGlobalEvent(event) {
         const seq = getNextSeq(this.protocolDir);
-        const full = { ...event, seq };
-        appendJsonl(join(this.protocolDir, 'events.jsonl'), full);
+        const full = { spec_version: MACS_SPEC_VERSION, ...event, seq };
+        const config = readJson(join(this.dir, 'macs.json'));
+        if (config?.settings.events_sharding) {
+            // v5: per-agent shard — events/{agent-id}.jsonl
+            const shardDir = join(this.protocolDir, 'events');
+            mkdirSync(shardDir, { recursive: true });
+            appendJsonl(join(shardDir, `${event.by}.jsonl`), full);
+        }
+        else {
+            appendJsonl(join(this.protocolDir, 'events.jsonl'), full);
+        }
         this.rebuildState();
         return full;
     }
@@ -184,6 +194,16 @@ export class MACSEngine {
         return readJsonl(join(this.protocolDir, 'tasks.jsonl'));
     }
     getGlobalEvents() {
+        const shardDir = join(this.protocolDir, 'events');
+        if (existsSync(shardDir)) {
+            // v5: merge all per-agent shards, sorted by seq
+            const files = readdirSync(shardDir).filter(f => f.endsWith('.jsonl'));
+            const all = [];
+            for (const f of files) {
+                all.push(...readJsonl(join(shardDir, f)));
+            }
+            return all.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
+        }
         return readJsonl(join(this.protocolDir, 'events.jsonl'));
     }
     // ----------------------------------------------------------
@@ -409,6 +429,8 @@ export class MACSEngine {
                 case 'agent_registered': {
                     agents[event.data.agent_id] = {
                         id: event.data.agent_id,
+                        instance_id: event.data.instance_id,
+                        session_id: event.data.session_id,
                         status: 'idle',
                         capabilities: event.data.capabilities,
                         model: event.data.model,
@@ -530,7 +552,7 @@ export class MACSEngine {
             breaking_changes: breakingCount,
         };
         const state = {
-            version: '3.0',
+            version: '4.1',
             updated_at: new Date().toISOString(),
             last_event_seq: lastSeq,
             tasks,
@@ -955,11 +977,12 @@ export class MACSEngine {
     // Agent Operations
     // ----------------------------------------------------------
     registerAgent(agentId, data) {
+        const instance_id = data.instance_id ?? `${agentId}-${Date.now()}`;
         this.appendGlobalEvent({
             type: 'agent_registered',
             ts: new Date().toISOString(),
             by: agentId,
-            data: { agent_id: agentId, ...data },
+            data: { agent_id: agentId, instance_id, ...data },
         });
         this.emit('onAgentRegistered', agentId, data.capabilities);
     }

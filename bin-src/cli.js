@@ -173,10 +173,11 @@ switch (command) {
         console.log('');
         break;
     }
+    case 'add':
     case 'create': {
         const title = args[1];
         if (!title) {
-            console.error('Usage: macs create <title>');
+            console.error('Usage: macs add <title>  (or: macs create <title>)');
             process.exit(1);
         }
         const priority = (getArg('--priority') || 'medium');
@@ -204,11 +205,17 @@ switch (command) {
         break;
     }
     case 'start': {
-        const taskId = args[1];
         const agentId = getArg('--agent') || 'cli';
+        let taskId = args[1] && !args[1].startsWith('--') ? args[1] : undefined;
+        // Easy mode: no task-id → auto-claim first available task
         if (!taskId) {
-            console.error('Usage: macs start <task-id>');
-            process.exit(1);
+            const claimed = engine.claimTask(agentId);
+            if (!claimed) {
+                console.log('❌ No available tasks to claim');
+                process.exit(0);
+            }
+            taskId = claimed.id;
+            console.log(`✅ Claimed ${taskId}: ${claimed.title}`);
         }
         engine.startTask(agentId, taskId);
         autoGenerate();
@@ -816,45 +823,230 @@ switch (command) {
         console.log('');
         break;
     }
+    case 'workload': {
+        // 3.2: Show agent workload distribution
+        const state = engine.getState();
+        const workload = engine.getAgentWorkload();
+        const agents = Object.values(state.agents);
+        console.log(`\n⚖️  Agent Workload`);
+        console.log(`${'─'.repeat(50)}`);
+        if (agents.length === 0) {
+            console.log('  No agents registered.');
+        }
+        else {
+            const sorted = agents.sort((a, b) => (workload[b.id] ?? 0) - (workload[a.id] ?? 0));
+            for (const agent of sorted) {
+                const load = workload[agent.id] ?? 0;
+                const bar = '█'.repeat(Math.min(load, 10)) + '░'.repeat(Math.max(0, 3 - load));
+                const statusIcon = agent.status === 'idle' ? '🟢' : agent.status === 'dead' ? '💀' : '🔵';
+                const caps = agent.capabilities.length > 0 ? ` [${agent.capabilities.join(', ')}]` : '';
+                console.log(`${statusIcon} ${agent.id.padEnd(24)} ${bar} ${load} active${caps}`);
+            }
+            const totalLoad = Object.values(workload).reduce((s, n) => s + n, 0);
+            const idleCount = agents.filter(a => a.status === 'idle').length;
+            console.log(`\n  Total active tasks: ${totalLoad} | Idle agents: ${idleCount}/${agents.length}`);
+        }
+        console.log('');
+        break;
+    }
+    case 'smart-drift': {
+        // 3.13: Smart drift analysis (spinning + direction drift)
+        const analysis = engine.analyzeSmartDrift();
+        console.log(`\n🧠 Smart Drift Analysis`);
+        console.log(`${'─'.repeat(50)}`);
+        if (analysis.length === 0) {
+            console.log('  ✅ No suspicious patterns detected.');
+        }
+        else {
+            for (const { taskId, task, type, details, recommended_action } of analysis) {
+                const icon = type === 'both' ? '🔴' : type === 'spinning' ? '🌀' : '🧭';
+                console.log(`${icon} ${taskId} "${task.title}" [${type}]`);
+                console.log(`   owner: ${task.assignee || 'unassigned'}`);
+                if (details.spinning) {
+                    console.log(`   🌀 Spinning files:`);
+                    for (const { file, count } of details.spinning) {
+                        console.log(`      ${file} — modified ${count}x`);
+                    }
+                }
+                if (details.direction_drift) {
+                    console.log(`   🧭 Direction drift:`);
+                    for (const { artifact, reason } of details.direction_drift) {
+                        console.log(`      ${artifact}`);
+                        console.log(`        → ${reason}`);
+                    }
+                }
+                console.log(`   💡 ${recommended_action}`);
+                console.log('');
+            }
+        }
+        console.log('');
+        break;
+    }
     case 'generate': {
         generator.generate();
         console.log('✅ human/ directory updated (TASK.md, CHANGELOG.md, STATUS.md)');
         break;
     }
+    case 'ci': {
+        // 4.5: CI/CD consistency check
+        const staleHours = getArg('--stale-hours') ? parseInt(getArg('--stale-hours'), 10) : 2;
+        const jsonOutput = hasFlag('--json');
+        const result = engine.ciCheck({ staleHours });
+        if (jsonOutput) {
+            console.log(JSON.stringify(result, null, 2));
+        }
+        else {
+            const statusIcon = result.ok ? '✅' : '❌';
+            console.log(`\n${statusIcon} MACS CI Check — ${result.summary}\n`);
+            if (result.errors.length > 0) {
+                console.log('Errors (must fix):');
+                for (const issue of result.errors) {
+                    console.log(`  ❌ [${issue.type}] ${issue.message}`);
+                }
+                console.log('');
+            }
+            if (result.warnings.length > 0) {
+                console.log('Warnings:');
+                for (const issue of result.warnings) {
+                    console.log(`  ⚠️  [${issue.type}] ${issue.message}`);
+                }
+                console.log('');
+            }
+            if (result.ok && result.warnings.length === 0) {
+                console.log('  All checks passed. No issues found.');
+            }
+        }
+        if (!result.ok)
+            process.exit(1);
+        break;
+    }
+    case 'template': {
+        // 4.4: Template market
+        const subCmd = args[1];
+        const templates = MACSEngine.getTemplates();
+        if (!subCmd || subCmd === 'list') {
+            console.log('\nMACS Template Market\n');
+            for (const [key, tmpl] of Object.entries(templates)) {
+                const taskCount = tmpl.tasks.length;
+                const tags = tmpl.tags.join(', ');
+                console.log(`  ${key.padEnd(16)} ${tmpl.name.padEnd(20)} ${taskCount} tasks  [${tags}]`);
+                console.log(`                   ${tmpl.description}`);
+                console.log('');
+            }
+            console.log('Usage: macs template use <name> --agent <id>');
+        }
+        else if (subCmd === 'use') {
+            const templateName = args[2];
+            const agentId = getArg('--agent') || 'system';
+            if (!templateName) {
+                console.error('Usage: macs template use <name> --agent <id>');
+                process.exit(1);
+            }
+            try {
+                const { taskIds, count } = engine.applyTemplate(templateName, agentId);
+                const tmpl = templates[templateName];
+                autoGenerate();
+                console.log(`\n✅ Template "${tmpl.name}" applied — ${count} tasks created:\n`);
+                for (const id of taskIds) {
+                    const state = engine.getState();
+                    const task = state.tasks[id];
+                    const deps = task.depends.length > 0 ? ` (depends: ${task.depends.join(', ')})` : '';
+                    const caps = task.requires_capabilities?.length ? ` [needs: ${task.requires_capabilities.join(', ')}]` : '';
+                    console.log(`  ${id}  ${task.title}${deps}${caps}`);
+                }
+                console.log(`\nNext: macs swarm --agents 4 --simulate`);
+            }
+            catch (err) {
+                console.error(`❌ ${err.message}`);
+                process.exit(1);
+            }
+        }
+        else if (subCmd === 'info') {
+            const templateName = args[2];
+            if (!templateName || !templates[templateName]) {
+                console.error(`Template "${templateName}" not found. Run: macs template list`);
+                process.exit(1);
+            }
+            const tmpl = templates[templateName];
+            console.log(`\n${tmpl.name} — ${tmpl.description}\n`);
+            console.log(`Tasks (${tmpl.tasks.length}):`);
+            for (const t of tmpl.tasks) {
+                const deps = t.depends_on?.length ? ` → depends: ${t.depends_on.join(', ')}` : '';
+                const caps = t.requires_capabilities?.length ? ` [${t.requires_capabilities.join('/')}]` : '';
+                const hrs = t.estimate_ms ? ` ~${Math.round(t.estimate_ms / 3600000)}h` : '';
+                console.log(`  ${(t.priority || 'medium').padEnd(8)} ${t.title}${caps}${hrs}${deps}`);
+            }
+        }
+        else {
+            console.error(`Unknown subcommand: macs template ${subCmd}`);
+            console.error('Usage: macs template [list|use <name>|info <name>]');
+            process.exit(1);
+        }
+        break;
+    }
     default: {
-        console.log(`
-MACS Protocol v3.0 — Git for AI Agents
+        const isPro = hasFlag('--pro');
+        if (!isPro && (command === undefined || command === 'help')) {
+            console.log(`
+MACS — Git for AI Agents  (run "macs help --pro" for all commands)
 
-Usage:
+5 commands to get started:
+  macs init                           Initialize MACS in current project
+  macs add <title>                    Add a task
+  macs status                         Show task board
+  macs start                          Claim + start next available task (no ID needed)
+  macs done <task-id>                 Mark task complete
+
+  macs help --pro                     Show all 27 commands
+`);
+        }
+        else {
+            console.log(`
+MACS Protocol v5.0 — Git for AI Agents
+
+Easy mode (--pro for all):
+  macs init [name]                          Initialize MACS in current project
+  macs add <title> [flags]                  Add a task  (alias: macs create)
+  macs status                               Show project status
+  macs start [task-id]                      Start a task (no ID = auto-claim next)
+  macs done <task-id>                       Complete a task
+
+Session / orchestration:
   macs boot --agent <id> [flags]            ★ Session start: catch up + get next task
   macs swarm --agents N [--simulate]        ★ Launch N agents, auto-distribute tasks
-  macs init [name]                          Initialize MACS in current project
-  macs status                               Show project status
-  macs create <title> [flags]               Create a task (--requires cap1,cap2 for 3.1)
   macs claim [task-id] --agent <id>         Claim a task (capability-filtered)
-  macs start <task-id>                      Start working on a task
-  macs done <task-id>                       Complete a task
+
+Task management:
   macs block <task-id> --reason "." --next "."   Block a task (handoff required)
   macs cancel <task-id> --reason "." --next "."  Cancel a task (handoff required)
   macs unblock <task-id>                         Unblock a task
   macs checkpoint <task-id> --note "✓→⚠?"       Record progress checkpoint
-  macs drift [--threshold 30]                    Show drifting tasks (default 30 min)
   macs decompose <task-id> --into "a,b,c"        Decompose task into subtasks
-  macs review <task-id> --result approve|reject  Peer review a task (3.10)
-  macs escalate <task-id> --reason "..."         Escalate to human (3.11)
-  macs reap [--threshold 45]                     Reap dead agents (3.12)
+  macs review <task-id> --result approve|reject  Peer review a task
+  macs escalate <task-id> --reason "..."         Escalate to human
+
+Monitoring:
+  macs drift [--threshold 30]                    Show drifting tasks
+  macs smart-drift                               Spin detection + direction drift
+  macs workload                                  Agent workload distribution
+  macs reap [--threshold 45]                     Reap dead agents
+
+Utilities:
   macs register <agent-id> [flags]          Register an agent
   macs log [--limit N]                      View event log
   macs impact <file>                        Analyze change impact
   macs inbox <agent-id>                     Check agent inbox
   macs send <from> <to> <msg>               Send a message
   macs generate                             Regenerate human/ Markdown
+  macs ci [--stale-hours N] [--json]        CI/CD consistency check
+  macs template [list|use <name>|info <name>]  Project templates
 
-Swarm examples:
-  macs swarm --agents 4 --simulate                         4 auto-named agents
+Examples:
+  macs swarm --agents 4 --simulate
   macs swarm --agents "opus:planner|sonnet:backend|haiku:qa" --simulate
-  macs swarm --agents 3 --capabilities backend,testing     real agents (no simulate)
+  macs template use saas-mvp --agent lead
 `);
+        }
         break;
     }
 }

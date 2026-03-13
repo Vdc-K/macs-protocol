@@ -4,6 +4,16 @@ All notable changes to MACS are documented here.
 
 ---
 
+## 2026-03-13
+
+### v5.1.0 — Easy Mode
+
+- [✨ feat] **`macs add <title>`**: alias for `macs create`, friendlier entry point for new users
+- [✨ feat] **`macs start` (no args)**: auto-claims the first available task — no task ID needed
+- [✨ feat] **Simple help by default**: `macs help` shows a 5-command quickstart; `macs help --pro` shows all 27 commands
+
+---
+
 ## 2026-03-06
 
 ### v5.0.0 — Distributed Ready

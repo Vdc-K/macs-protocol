@@ -177,9 +177,10 @@ switch (command) {
     break
   }
 
+  case 'add':
   case 'create': {
     const title = args[1]
-    if (!title) { console.error('Usage: macs create <title>'); process.exit(1) }
+    if (!title) { console.error('Usage: macs add <title>  (or: macs create <title>)'); process.exit(1) }
 
     const priority = (getArg('--priority') || 'medium') as any
     const tags = getArg('--tags')?.split(',') || []
@@ -208,9 +209,17 @@ switch (command) {
   }
 
   case 'start': {
-    const taskId = args[1]
     const agentId = getArg('--agent') || 'cli'
-    if (!taskId) { console.error('Usage: macs start <task-id>'); process.exit(1) }
+    let taskId = args[1] && !args[1].startsWith('--') ? args[1] : undefined
+
+    // Easy mode: no task-id → auto-claim first available task
+    if (!taskId) {
+      const claimed = engine.claimTask(agentId)
+      if (!claimed) { console.log('❌ No available tasks to claim'); process.exit(0) }
+      taskId = claimed.id
+      console.log(`✅ Claimed ${taskId}: ${claimed.title}`)
+    }
+
     engine.startTask(agentId, taskId)
     autoGenerate()
     console.log(`🔄 ${agentId} started ${taskId}`)
@@ -999,49 +1008,68 @@ switch (command) {
   }
 
   default: {
-    console.log(`
-MACS Protocol v4.0 — Git for AI Agents
+    const isPro = hasFlag('--pro')
 
-Usage:
+    if (!isPro && (command === undefined || command === 'help')) {
+      console.log(`
+MACS — Git for AI Agents  (run "macs help --pro" for all commands)
+
+5 commands to get started:
+  macs init                           Initialize MACS in current project
+  macs add <title>                    Add a task
+  macs status                         Show task board
+  macs start                          Claim + start next available task (no ID needed)
+  macs done <task-id>                 Mark task complete
+
+  macs help --pro                     Show all 27 commands
+`)
+    } else {
+      console.log(`
+MACS Protocol v5.0 — Git for AI Agents
+
+Easy mode (--pro for all):
+  macs init [name]                          Initialize MACS in current project
+  macs add <title> [flags]                  Add a task  (alias: macs create)
+  macs status                               Show project status
+  macs start [task-id]                      Start a task (no ID = auto-claim next)
+  macs done <task-id>                       Complete a task
+
+Session / orchestration:
   macs boot --agent <id> [flags]            ★ Session start: catch up + get next task
   macs swarm --agents N [--simulate]        ★ Launch N agents, auto-distribute tasks
-  macs init [name]                          Initialize MACS in current project
-  macs status                               Show project status
-  macs create <title> [flags]               Create a task (--requires cap1,cap2 for 3.1)
   macs claim [task-id] --agent <id>         Claim a task (capability-filtered)
-  macs start <task-id>                      Start working on a task
-  macs done <task-id>                       Complete a task
+
+Task management:
   macs block <task-id> --reason "." --next "."   Block a task (handoff required)
   macs cancel <task-id> --reason "." --next "."  Cancel a task (handoff required)
   macs unblock <task-id>                         Unblock a task
   macs checkpoint <task-id> --note "✓→⚠?"       Record progress checkpoint
-  macs drift [--threshold 30]                    Show drifting tasks (default 30 min)
-  macs smart-drift                               Smart drift analysis: spinning + direction drift (3.13)
-  macs workload                                  Show agent workload distribution (3.2)
   macs decompose <task-id> --into "a,b,c"        Decompose task into subtasks
-  macs review <task-id> --result approve|reject  Peer review a task (3.10)
-  macs escalate <task-id> --reason "..."         Escalate to human (3.11)
-  macs reap [--threshold 45]                     Reap dead agents (3.12)
+  macs review <task-id> --result approve|reject  Peer review a task
+  macs escalate <task-id> --reason "..."         Escalate to human
+
+Monitoring:
+  macs drift [--threshold 30]                    Show drifting tasks
+  macs smart-drift                               Spin detection + direction drift
+  macs workload                                  Agent workload distribution
+  macs reap [--threshold 45]                     Reap dead agents
+
+Utilities:
   macs register <agent-id> [flags]          Register an agent
   macs log [--limit N]                      View event log
   macs impact <file>                        Analyze change impact
   macs inbox <agent-id>                     Check agent inbox
   macs send <from> <to> <msg>               Send a message
   macs generate                             Regenerate human/ Markdown
-  macs ci [--stale-hours N] [--json]        CI/CD consistency check (4.5)
-  macs template [list|use <name>|info <name>]  Project templates (4.4)
+  macs ci [--stale-hours N] [--json]        CI/CD consistency check
+  macs template [list|use <name>|info <name>]  Project templates
 
-Swarm examples:
-  macs swarm --agents 4 --simulate                         4 auto-named agents
+Examples:
+  macs swarm --agents 4 --simulate
   macs swarm --agents "opus:planner|sonnet:backend|haiku:qa" --simulate
-  macs swarm --agents 3 --capabilities backend,testing     real agents (no simulate)
-
-Template examples:
-  macs template list                        List available templates
-  macs template use saas-mvp --agent lead   Apply SaaS MVP template (8 tasks)
-  macs template use api-service --agent pm  Apply API service template
-  macs template info data-pipeline          Show template details
+  macs template use saas-mvp --agent lead
 `)
+    }
     break
   }
 }
