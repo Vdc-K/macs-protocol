@@ -6,6 +6,17 @@ All notable changes to MACS are documented here.
 
 ## 2026-03-13
 
+### v5.2.0 — Superpowers + PACEflow Integration
+
+- [✨ feat] **`adapters/superpowers/`**: `import-plan.mjs` parses Superpowers plan files and batch-creates MACS tasks with inferred priority, tags, and sequential dependencies
+- [✨ feat] **`adapters/paceflow/`**: 3 Claude Code hooks enforce Plan→Execute→Verify per task — `pre-tool-use.js` blocks writes without plan.md, `stop.js` blocks session end without checkpoint, `session-start.js` auto-creates plan templates
+- [✨ feat] **`macs import-plan <file>`**: CLI command to import Superpowers plans
+- [✨ feat] **`macs install-hooks --mode pace`**: one-command PACEflow hook setup
+
+### v5.1.1 — Hotfix
+
+- [🐛 fix] Added `.macs/protocol/dist/` to npm `files` field — `npm install -g` now includes compiled JS
+
 ### v5.1.0 — Easy Mode
 
 - [✨ feat] **`macs add <title>`**: alias for `macs create`, friendlier entry point for new users
