@@ -6,6 +6,14 @@ All notable changes to MACS are documented here.
 
 ## 2026-03-13
 
+### v5.3.0 — Skill Marketplace
+
+- [✨ feat] **`macs skill install <name>`**: install Claude Code skills from community registry or GitHub
+- [✨ feat] **`macs skill list`**: browse available skills with install status indicators
+- [✨ feat] **`macs skill search <keyword>`**: search skills by name, description, or tags
+- [✨ feat] **`skills/registry.json`**: community skill registry (seeded with `knowledge-graph`)
+- [✨ feat] **`adapters/skill-market/install.mjs`**: GitHub tarball downloader + extractor
+
 ### v5.2.0 — Superpowers + PACEflow Integration
 
 - [✨ feat] **`adapters/superpowers/`**: `import-plan.mjs` parses Superpowers plan files and batch-creates MACS tasks with inferred priority, tags, and sequential dependencies

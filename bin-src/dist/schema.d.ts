@@ -1,14 +1,17 @@
 /**
- * MACS Protocol v3.0 — Type Definitions
+ * MACS Protocol v4.1 — Type Definitions
  *
  * Core principle: Append-only JSONL events → rebuildable state → auto-generated Markdown
  * All timestamps are ISO 8601. All IDs are prefixed (T-, C-, E-, MSG-).
  */
+/** Current spec version — written into every event for forward compatibility */
+export declare const MACS_SPEC_VERSION = "4.1";
 /** All possible event types in tasks.jsonl */
 export type TaskEventType = 'task_created' | 'task_assigned' | 'task_unassigned' | 'task_started' | 'task_blocked' | 'task_unblocked' | 'task_completed' | 'task_cancelled' | 'task_priority_changed' | 'task_updated' | 'task_decomposed' | 'task_checkpoint' | 'task_review_requested' | 'task_reviewed' | 'task_escalated';
 /** All possible event types in events.jsonl */
 export type GlobalEventType = 'file_modified' | 'decision_made' | 'conflict_detected' | 'conflict_resolved' | 'test_passed' | 'test_failed' | 'agent_registered' | 'agent_heartbeat' | 'agent_offline' | 'agent_dead' | 'lock_acquired' | 'lock_released' | 'breaking_change';
 export interface TaskEventBase {
+    spec_version?: string;
     type: TaskEventType;
     id: string;
     ts: string;
@@ -130,6 +133,7 @@ export interface TaskEscalatedEvent extends TaskEventBase {
 }
 export type TaskEvent = TaskCreatedEvent | TaskAssignedEvent | TaskUnassignedEvent | TaskStartedEvent | TaskBlockedEvent | TaskUnblockedEvent | TaskCompletedEvent | TaskCancelledEvent | TaskPriorityChangedEvent | TaskUpdatedEvent | TaskDecomposedEvent | TaskCheckpointEvent | TaskReviewRequestedEvent | TaskReviewedEvent | TaskEscalatedEvent;
 export interface GlobalEventBase {
+    spec_version?: string;
     type: GlobalEventType;
     ts: string;
     by: string;
@@ -195,6 +199,8 @@ export interface AgentRegisteredEvent extends GlobalEventBase {
     type: 'agent_registered';
     data: {
         agent_id: string;
+        instance_id: string;
+        session_id?: string;
         capabilities: string[];
         model?: string;
         role?: string;
@@ -299,6 +305,8 @@ export interface BlockedRecord {
 }
 export interface AgentState {
     id: string;
+    instance_id?: string;
+    session_id?: string;
     status: 'idle' | 'busy' | 'blocked' | 'offline' | 'dead';
     capabilities: string[];
     model?: string;
@@ -341,7 +349,7 @@ export interface ProjectMetrics {
     breaking_changes: number;
 }
 export interface MACSState {
-    version: '3.0';
+    version: '3.0' | '4.1';
     project?: string;
     updated_at: string;
     last_event_seq: number;
@@ -361,7 +369,7 @@ export interface AgentMessage {
     read: boolean;
 }
 export interface MACSConfig {
-    version: '3.0';
+    version: '3.0' | '4.1';
     project: string;
     created_at: string;
     settings: {
@@ -372,5 +380,6 @@ export interface MACSConfig {
         generate_human_readable: boolean;
         conflict_resolution: 'last_write_wins' | 'manual';
         max_concurrent_tasks_per_agent?: number;
+        events_sharding?: boolean;
     };
 }

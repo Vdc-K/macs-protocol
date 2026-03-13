@@ -985,6 +985,21 @@ switch (command) {
     }
   }
 
+  case 'skill': {
+    // v5.3: Claude Code skill marketplace
+    const { spawnSync: spawnSkill } = await import('child_process')
+    const { fileURLToPath: fup } = await import('url')
+    const { dirname: dn, join: jn } = await import('path')
+    const __dirname = dn(fup(import.meta.url))
+    const installScript = jn(__dirname, '..', '..', '..', 'adapters', 'skill-market', 'install.mjs')
+    const result = spawnSkill('node', [installScript, ...args.slice(1)], {
+      stdio: 'inherit',
+      cwd: projectRoot,
+      env: { ...process.env, MACS_PROJECT_DIR: projectRoot },
+    })
+    process.exit(result.status || 0)
+  }
+
   case 'template': {
     // 4.4: Template market
     const subCmd = args[1]

@@ -1,0 +1,22 @@
+{
+  "version": "1",
+  "updated": "2026-03-13",
+  "description": "Community Claude Code skill registry for MACS",
+  "skills": {
+    "knowledge-graph": {
+      "description": "Knowledge graph navigator — auto-builds node+edge graph from skills/thinking/projects, supports subgraph queries",
+      "github": "Vdc-K/cc-knowledge-graph",
+      "branch": "main",
+      "tags": ["navigation", "graph", "context", "search"],
+      "author": "Vdc-K"
+    },
+    "macs": {
+      "description": "Multi-Agent Coordination System — JSONL event sourcing for agent teams",
+      "github": "hicccc77/macs-skill",
+      "branch": "main",
+      "tags": ["agents", "coordination", "tasks"],
+      "author": "hicccc77",
+      "note": "Use `npm install -g macs-protocol` instead for full CLI"
+    }
+  }
+}

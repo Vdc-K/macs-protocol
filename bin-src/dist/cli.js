@@ -920,6 +920,58 @@ switch (command) {
             process.exit(1);
         break;
     }
+    case 'import-plan': {
+        // v5.2: Import Superpowers plan → batch create tasks
+        const planFile = args[1];
+        if (!planFile) {
+            console.error('Usage: macs import-plan <plan-file> [--agent <id>] [--dry-run]');
+            console.error('       Parses a Superpowers plan file and batch-creates MACS tasks.');
+            process.exit(1);
+        }
+        const { spawnSync } = await import('child_process');
+        const { fileURLToPath } = await import('url');
+        const { dirname, join } = await import('path');
+        const __dirname = dirname(fileURLToPath(import.meta.url));
+        const importScript = join(__dirname, '..', '..', '..', 'adapters', 'superpowers', 'import-plan.mjs');
+        const result = spawnSync('node', [importScript, ...args.slice(1)], {
+            stdio: 'inherit', cwd: projectRoot
+        });
+        process.exit(result.status || 0);
+    }
+    case 'install-hooks': {
+        // v5.2: Install Claude Code hooks (pace mode or basic)
+        const mode = getArg('--mode') || 'pace';
+        const { spawnSync } = await import('child_process');
+        const { fileURLToPath } = await import('url');
+        const { dirname, join } = await import('path');
+        const __dirname = dirname(fileURLToPath(import.meta.url));
+        if (mode === 'pace') {
+            const installScript = join(__dirname, '..', '..', '..', 'adapters', 'paceflow', 'install.sh');
+            console.log('🔧 Installing MACS × PACEflow hooks...');
+            const result = spawnSync('bash', [installScript, '--project-dir', projectRoot], {
+                stdio: 'inherit'
+            });
+            process.exit(result.status || 0);
+        }
+        else {
+            console.error(`Unknown mode: ${mode}. Available: pace`);
+            process.exit(1);
+        }
+    }
+    case 'skill': {
+        // v5.3: Claude Code skill marketplace
+        const { spawnSync: spawnSkill } = await import('child_process');
+        const { fileURLToPath: fup } = await import('url');
+        const { dirname: dn, join: jn } = await import('path');
+        const __dirname = dn(fup(import.meta.url));
+        const installScript = jn(__dirname, '..', '..', '..', 'adapters', 'skill-market', 'install.mjs');
+        const result = spawnSkill('node', [installScript, ...args.slice(1)], {
+            stdio: 'inherit',
+            cwd: projectRoot,
+            env: { ...process.env, MACS_PROJECT_DIR: projectRoot },
+        });
+        process.exit(result.status || 0);
+    }
     case 'template': {
         // 4.4: Template market
         const subCmd = args[1];
@@ -1040,6 +1092,10 @@ Utilities:
   macs generate                             Regenerate human/ Markdown
   macs ci [--stale-hours N] [--json]        CI/CD consistency check
   macs template [list|use <name>|info <name>]  Project templates
+
+Integrations:
+  macs import-plan <file> [--dry-run]       Import Superpowers plan → batch create tasks
+  macs install-hooks [--mode pace]          Install Claude Code hooks (PACEflow quality gates)
 
 Examples:
   macs swarm --agents 4 --simulate

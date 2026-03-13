@@ -1,5 +1,5 @@
 /**
- * MACS Protocol Engine v3.0
+ * MACS Protocol Engine v4.1
  *
  * Core: Append events → Rebuild state → Query state
  * All writes go to JSONL (append-only). State is a cached projection.
@@ -136,6 +136,8 @@ export declare class MACSEngine {
         capabilities: string[];
         model?: string;
         role?: string;
+        instance_id?: string;
+        session_id?: string;
     }): void;
     heartbeat(agentId: string, data: {
         status: 'busy' | 'idle' | 'blocked';
