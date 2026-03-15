@@ -1,8 +1,8 @@
-# MACS — Git for AI Agents
+# MACS — The Universal Workbench for AI Agents
 
-> When 10 agents work on the same project, who does what? What changed? Who's affected?
+> Claude Code, Codex, Cursor, Devin, Windsurf — every agent speaks a different language.
 >
-> **MACS keeps your agents in sync.** No servers, no setup, just files + Git.
+> **MACS gives them one shared workbench.** Any agent that can read/write files can join. No servers, no setup, just JSONL + Git.
 
 [![npm](https://img.shields.io/npm/v/macs-protocol)](https://www.npmjs.com/package/macs-protocol)
 [![tests](https://img.shields.io/badge/tests-123%20passing-brightgreen)](#)
@@ -23,16 +23,29 @@
 
 ## The Problem
 
-You have multiple AI agents working on the same codebase:
+Every AI coding agent is powerful alone. But they can't work together:
 
 ```
-Agent-001 changes the API return format
-Agent-002 doesn't know, keeps using the old format
-Agent-003 changes the database schema
-→ Everything breaks
+Claude Code writes the backend    — doesn't know Cursor is redesigning the API
+Codex reviews the PR              — doesn't know Devin already deployed a fix
+Windsurf runs the tests           — doesn't know the schema changed 10 minutes ago
+→ Everyone's working. Nobody's coordinating. Everything breaks.
 ```
 
-**A2A/MCP solve how agents talk. MACS solves how agents work together without chaos.**
+Each agent has its own built-in task system (Claude Code has Agent Teams, Cursor has Composer, Codex has its own context). But **none of them can see what the others are doing.**
+
+**A2A/MCP solve how agents talk. MACS solves how agents work together — regardless of which framework they run on.**
+
+### Why not just use each agent's built-in tools?
+
+Built-in tools (like Claude Code's Agent Teams) are great — **within that agent's ecosystem.** But the moment you involve a second framework, you need a shared layer:
+
+| Scenario | Built-in tools | MACS |
+|----------|---------------|------|
+| 3 Claude Code agents on one project | ✅ Agent Teams works | ✅ Also works |
+| Claude Code + Codex + Cursor together | ❌ No shared state | ✅ File-based protocol, any agent joins |
+| Agent dies mid-task, different agent picks up | ❌ Context lost | ✅ Event sourcing preserves everything |
+| Human wants one dashboard across all agents | ❌ Check each tool | ✅ `macs status` shows all |
 
 ## How It Works
 
@@ -211,27 +224,63 @@ npx tsx .macs/transport/server.ts --project . --port 7474
 
 ## Platform Support
 
-Works with any AI agent framework:
+**MACS is framework-agnostic by design.** The protocol is just files — any agent that can read/write to disk (or HTTP) can participate.
 
-| Platform | Support |
-|----------|---------|
-| Claude Code | Native |
-| Cursor | Adapter |
-| Aider | Adapter |
-| Continue.dev | Adapter |
-| Ollama + local models | Adapter |
-| LM Studio | Adapter |
-| LangChain / CrewAI / AutoGen | Python SDK |
-| Any tool that reads files | Just works |
+| Platform | Integration | How it joins |
+|----------|------------|-------------|
+| **Claude Code** | Hooks + CLI | `macs install-hooks` — quality gates via PreToolUse/Stop hooks |
+| **Codex (OpenAI)** | CLI + file-based | Reads `.macs/` state, writes events via CLI or directly |
+| **Cursor** | Adapter | `.cursorrules` integration |
+| **Devin / Windsurf** | File-based | Any agent that reads files → instant participant |
+| **Aider / Continue** | Adapter | CLI commands in agent prompts |
+| **LangChain / CrewAI / AutoGen** | Python SDK | `from macs import MACSClient` |
+| **Remote / Cloud agents** | HTTP Transport | REST + SSE on port 7474 — no filesystem needed |
 
 ```bash
 # One-line install, auto-detects your platform
 ./install.sh
 ```
 
+### The 5-minute integration test
+
+If your agent can do these 3 things, it works with MACS:
+
+```bash
+# 1. Read current state
+cat .macs/protocol/state.json
+
+# 2. Claim a task
+macs claim T-001 --agent my-agent
+
+# 3. Mark it done
+macs done T-001 --summary "implemented auth endpoint"
+```
+
+That's it. No SDK required. No server required. Just files.
+
 ## Positioning
 
 ```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Your Project                             │
+│                                                                 │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+│   │  Claude   │  │  Codex   │  │  Cursor  │  │  Devin   │ ...  │
+│   │  Code     │  │          │  │          │  │          │      │
+│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘      │
+│        │              │              │              │            │
+│        └──────────────┴──────────────┴──────────────┘            │
+│                              │                                   │
+│                    ┌─────────▼─────────┐                        │
+│                    │    .macs/ (JSONL)  │                        │
+│                    │                   │                        │
+│                    │  Tasks · Events   │                        │
+│                    │  State · Inbox    │                        │
+│                    └───────────────────┘                        │
+│                                                                 │
+│   Any agent that reads/writes files → instant participant       │
+└─────────────────────────────────────────────────────────────────┘
+
 Communication Layer     Work Layer          Capability Layer
 (how agents talk)      (how agents        (how agents evolve)
                         coordinate)
@@ -264,24 +313,26 @@ MIT © 2026
 
 ## 中文
 
-# MACS — AI Agent 的 Git
+# MACS — AI Agent 的通用工作台
 
-> 10 个 agent 同时改一个项目，谁做什么？改了什么？影响谁？
+> Claude Code、Codex、Cursor、Devin、Windsurf——每个 agent 都有自己的地盘。
 >
-> **MACS 让你的 agent 保持同步。** 不需要服务器，不需要配置，只要文件 + Git。
+> **MACS 给它们一个共同的工作台。** 能读写文件就能加入，不需要服务器，只要 JSONL + Git。
 
 ## 问题
 
-多个 AI agent 在同一个代码库里工作：
+每个 AI 编程 agent 单独都很强。但它们没法一起干活：
 
 ```
-Agent-001 改了 API 返回格式
-Agent-002 不知道，继续用旧格式
-Agent-003 改了数据库 schema
-→ 整个系统崩了
+Claude Code 在写后端    — 不知道 Cursor 正在改 API 设计
+Codex 在审代码          — 不知道 Devin 已经部署了修复
+Windsurf 在跑测试      — 不知道 schema 10 分钟前改了
+→ 每个人都在干活。没人在协调。全崩了。
 ```
 
-**A2A/MCP 解决 agent 怎么说话。MACS 解决 agent 怎么一起干活不乱套。**
+每个 agent 都有自己的内置任务系统（Claude Code 有 Agent Teams，Cursor 有 Composer）。但**它们看不到彼此在做什么。**
+
+**A2A/MCP 解决 agent 怎么说话。MACS 解决 agent 怎么一起干活——不管它们跑在什么框架上。**
 
 ## 原理
 
@@ -349,6 +400,21 @@ macs skill search graph                  # 关键词搜索
 ## 定位
 
 ```
+┌─────────────────────────────────────────────────────┐
+│                    你的项目                           │
+│                                                     │
+│   Claude Code  ·  Codex  ·  Cursor  ·  Devin  ...  │
+│        │           │          │          │          │
+│        └───────────┴──────────┴──────────┘          │
+│                        │                            │
+│              ┌─────────▼─────────┐                  │
+│              │   .macs/ (JSONL)  │                  │
+│              │  任务 · 事件 · 状态 │                  │
+│              └───────────────────┘                  │
+│                                                     │
+│   能读写文件的 agent → 即刻参与协作                    │
+└─────────────────────────────────────────────────────┘
+
 通信层（怎么说话）    工作层（怎么协作）    能力层（怎么进化）
 A2A (Google)         MACS（我们）         EvoMap (GEP)
 MCP (Anthropic)
@@ -359,7 +425,16 @@ ACP (IBM)
 
 ## 平台支持
 
-支持所有 AI agent 框架：Claude Code、Cursor、Aider、Continue、Ollama、LM Studio、LangChain、CrewAI、AutoGen，以及任何能读文件的工具。
+**MACS 是框架无关的。** 协议就是文件——能读写磁盘（或 HTTP）的 agent 都能参与。
+
+| 平台 | 集成方式 |
+|------|---------|
+| **Claude Code** | Hooks + CLI |
+| **Codex (OpenAI)** | CLI + 文件读写 |
+| **Cursor** | `.cursorrules` 集成 |
+| **Devin / Windsurf** | 文件读写即可 |
+| **LangChain / CrewAI** | Python SDK |
+| **云端 Agent** | HTTP Transport API |
 
 ```bash
 ./install.sh  # 一键安装，自动检测平台
