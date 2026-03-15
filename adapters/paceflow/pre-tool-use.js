@@ -44,8 +44,10 @@ process.stdin.on('end', () => {
     if (unplanned.length > 0) {
       const ids = unplanned.map(t => t.id).join(', ')
       console.log(JSON.stringify({
-        decision: 'deny',
-        reason: `MACS×PACE: Task ${ids} has no plan.md. Create .macs/pace/${unplanned[0].id}/plan.md before writing code.\n\nTemplate:\n# Plan: ${unplanned[0].title}\n\n## Approach\n...\n\n## Files\n- Modify: ...\n\n## Verification\n- [ ] ...`
+        hookSpecificOutput: {
+          permissionDecision: 'deny',
+          reason: `MACS×PACE: Task ${ids} has no plan.md. Create .macs/pace/${unplanned[0].id}/plan.md before writing code.\n\nTemplate:\n# Plan: ${unplanned[0].title}\n\n## Approach\n...\n\n## Files\n- Modify: ...\n\n## Verification\n- [ ] ...`
+        }
       }))
       process.exit(0)
     }

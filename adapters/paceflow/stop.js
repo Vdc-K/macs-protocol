@@ -58,14 +58,11 @@ try {
   const ids = unverified.map(t => `${t.id}: ${t.title}`).join('\n  ')
   writeFileSync(counterFile, String(stopCount + 1))
 
-  console.error(`\n⚠️  MACS×PACE: ${unverified.length} task(s) in progress without verification:\n  ${ids}\n`)
-  console.error(`Before stopping, either:`)
-  console.error(`  macs checkpoint <task-id> --note "✓ done → next: ... ⚠ issues: ..."`)
-  console.error(`  macs done <task-id> --summary "..."`)
-  console.error(`  macs block <task-id> --reason "..." --next "..."`)
-  console.error(`\n(This check will auto-bypass after 3 attempts)\n`)
-
-  process.exit(2) // exit 2 blocks Claude from stopping
+  console.log(JSON.stringify({
+    decision: 'block',
+    reason: `MACS×PACE: ${unverified.length} task(s) in progress without verification:\n  ${ids}\n\nBefore stopping, either:\n  macs checkpoint <task-id> --note "✓ done → next: ... ⚠ issues: ..."\n  macs done <task-id> --summary "..."\n  macs block <task-id> --reason "..." --next "..."\n\n(This check will auto-bypass after 3 attempts)`
+  }))
+  process.exit(0)
 } catch {
   writeFileSync(counterFile, '0')
   process.exit(0)
