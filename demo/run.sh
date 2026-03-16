@@ -43,7 +43,7 @@ clear
 echo -e "${BOLD}"
 echo "  ╔══════════════════════════════════════════════════════╗"
 echo "  ║   MACS Protocol v3.0 — Multi-Agent Swarm Demo       ║"
-echo "  ║   \"Git for AI Agents\"                               ║"
+echo "  ║   \"The Universal Workbench for AI Agents\"            ║"
 echo "  ╚══════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 pause

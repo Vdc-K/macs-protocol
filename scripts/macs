@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# LEGACY: This script references pre-v5 commands. Use bin/macs.js directly.
 # MACS CLI - Main entry point
 
 set -e

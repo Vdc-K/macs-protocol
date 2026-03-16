@@ -1040,7 +1040,7 @@ switch (command) {
         const isPro = hasFlag('--pro');
         if (!isPro && (command === undefined || command === 'help')) {
             console.log(`
-MACS — Git for AI Agents  (run "macs help --pro" for all commands)
+MACS — The Universal Workbench for AI Agents  (run "macs help --pro" for all commands)
 
 5 commands to get started:
   macs init                           Initialize MACS in current project
@@ -1054,7 +1054,7 @@ MACS — Git for AI Agents  (run "macs help --pro" for all commands)
         }
         else {
             console.log(`
-MACS Protocol v5.0 — Git for AI Agents
+MACS Protocol v5.0 — The Universal Workbench for AI Agents
 
 Easy mode (--pro for all):
   macs init [name]                          Initialize MACS in current project

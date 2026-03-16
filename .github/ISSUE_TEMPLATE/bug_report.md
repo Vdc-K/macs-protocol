@@ -13,8 +13,8 @@ A clear description of what the bug is.
 ## To Reproduce
 
 Steps to reproduce:
-1. Run `init.sh ...`
-2. Edit `TASK.md ...`
+1. Run `macs init ...`
+2. Run `macs task add ...` or `macs status`
 3. See error
 
 ## Expected Behavior

@@ -106,7 +106,7 @@ case "$PLATFORM" in
     fi
 
     # Initialize templates
-    "$MACS_DIR/scripts/init.sh" "$PROJECT_NAME" .
+    macs init "$PROJECT_NAME"
 
     echo ""
     print_success "MACS installed for Claude Code!"
@@ -114,8 +114,8 @@ case "$PLATFORM" in
     echo "Next steps:"
     echo "  1. Restart Claude Code (or run: source ~/.zshrc)"
     echo "  2. Type /macs to use MACS commands"
-    echo "  3. Edit TASK.md to add your first tasks"
-    echo "  4. Run: macs dashboard"
+    echo "  3. Run: macs add 'First task' to create a task"
+    echo "  4. Run: macs status (TASK.md is auto-generated)"
     ;;
 
   cursor)
@@ -123,7 +123,7 @@ case "$PLATFORM" in
     echo ""
 
     # Copy templates
-    "$MACS_DIR/scripts/init.sh" "$PROJECT_NAME" .
+    macs init "$PROJECT_NAME"
 
     # Check if .cursorrules exists
     if [ -f ".cursorrules" ]; then
@@ -140,53 +140,42 @@ case "$PLATFORM" in
 
 ## 📋 Before Starting Work
 
-Always read these files first:
-- **TASK.md** - Task board (what to do)
-- **CHANGELOG.md** - Recent changes (what was done)
-- **CONTEXT.md** - Project context (why we did it)
+Check project status via CLI:
+\`\`\`bash
+macs status          # Current task board
+macs log --limit 5   # Recent activity
+\`\`\`
+TASK.md and CHANGELOG.md in \`human/\` are auto-generated — read them for context but never edit manually.
 
 ## ✍️ After Completing Work
 
-Update these files:
-1. **CHANGELOG.md**: Add entry in this format:
-   ```
-   - [type] Description - by cursor-agent #tags
-   ```
-   Types: ✨feat, 🐛fix, ♻️refactor, 📝docs, ⚡perf, 🔧config
-   Tags: #dev, #ops, #docs, #design, etc.
-
-2. **TASK.md**: Mark task as completed `[x]`
-
-3. **CONTEXT.md** (optional): Add important decisions or insights
+Use CLI to record progress (human docs update automatically):
+\`\`\`bash
+macs done <task-id> --summary "What you did"
+\`\`\`
 
 ## 🚨 If Blocked
 
-If you encounter:
-- Architectural decisions beyond your scope
-- Ambiguous requirements
-- Blocking issues
-
-Add entry to TASK.md → 🚨 Escalations section with:
-- Task description
-- Why blocked
-- What needs to be decided
+\`\`\`bash
+macs block <task-id> --reason "Why blocked" --next "What needs to happen"
+\`\`\`
 
 ## 📊 Token Optimization
 
-Use MACS index for efficient querying:
+Check task board and project status efficiently:
 ```bash
-# Generate index (run this after major changes)
-macs index .
+# View current task board
+macs status
 
-# Query instead of reading full files
-# (Saves 99% tokens: 3000 → 30 tokens per query)
+# View workload across agents
+macs workload
 ```
 
 ## 🎯 Collaboration Protocol
 
-- Read TASK.md to know current priorities
-- Update CHANGELOG.md after every significant change
-- Use tags (#dev, #ops, #docs) to categorize work
+- Run \`macs status\` to know current priorities
+- Use \`macs done/checkpoint/block\` to record progress (human docs auto-update)
+- Use \`macs log --limit 10\` to review recent activity
 - Identify yourself as "cursor-agent" in CHANGELOG
 
 EOF
@@ -198,9 +187,9 @@ EOF
     echo ""
     echo "Next steps:"
     echo "  1. Cursor will automatically read .cursorrules"
-    echo "  2. Edit TASK.md to add your first tasks"
-    echo "  3. Start working with Cursor Agent"
-    echo "  4. Run: macs dashboard (to visualize progress)"
+    echo "  2. Run: macs add 'First task' to add your first task"
+    echo "  3. Start working with Cursor Agent (TASK.md is auto-generated)"
+    echo "  4. Run: macs status (to view progress)"
     ;;
 
   continue)
@@ -208,7 +197,7 @@ EOF
     echo ""
 
     # Copy templates
-    "$MACS_DIR/scripts/init.sh" "$PROJECT_NAME" .
+    macs init "$PROJECT_NAME"
 
     # Create .continue directory if not exists
     mkdir -p .continue
@@ -224,19 +213,19 @@ EOF
     {
       "name": "macs-task",
       "params": {
-        "filepath": "TASK.md"
+        "filepath": "human/TASK.md"
       }
     },
     {
       "name": "macs-changelog",
       "params": {
-        "filepath": "CHANGELOG.md"
+        "filepath": "human/CHANGELOG.md"
       }
     },
     {
       "name": "macs-context",
       "params": {
-        "filepath": "CONTEXT.md"
+        "filepath": "human/STATUS.md"
       }
     }
   ],
@@ -244,7 +233,7 @@ EOF
     {
       "name": "macs-update",
       "description": "Update MACS documents after work",
-      "prompt": "Please update CHANGELOG.md with your changes in the format: [type] description - by continue-agent #tags"
+      "prompt": "Run 'macs done <task-id> --summary \"description\"' to record completion. Human docs auto-update."
     }
   ]
 }
@@ -258,26 +247,26 @@ EOF
     echo "Next steps:"
     echo "  1. Restart VS Code"
     echo "  2. Use @macs-task, @macs-changelog, @macs-context in prompts"
-    echo "  3. Edit TASK.md to add your first tasks"
+    echo "  3. Run: macs add 'First task' (TASK.md auto-generates)"
     ;;
 
   openclaw)
     print_success "OpenClaw detected!"
     echo ""
 
-    # OpenClaw natively supports stigmergy (document-driven collaboration)
-    "$MACS_DIR/scripts/init.sh" "$PROJECT_NAME" .
+    # OpenClaw natively supports stigmergy (event-sourcing collaboration)
+    macs init "$PROJECT_NAME"
 
-    print_success "MACS templates installed!"
-    print_info "OpenClaw natively supports document-driven collaboration."
+    print_success "MACS event store initialized!"
+    print_info "OpenClaw natively supports MACS event-sourcing protocol."
 
     echo ""
     print_success "MACS installed for OpenClaw!"
     echo ""
     echo "Next steps:"
-    echo "  1. Edit TASK.md to add your first tasks"
-    echo "  2. OpenClaw agents will automatically read MACS documents"
-    echo "  3. Run: macs dashboard"
+    echo "  1. Run: macs add 'First task' to create a task"
+    echo "  2. OpenClaw agents use MACS CLI to coordinate (human docs auto-generate)"
+    echo "  3. Run: macs status"
     ;;
 
   zeroclaw|nanoclaw)
@@ -285,7 +274,7 @@ EOF
     echo ""
 
     # Copy templates
-    "$MACS_DIR/scripts/init.sh" "$PROJECT_NAME" .
+    macs init "$PROJECT_NAME"
 
     print_success "MACS templates installed!"
 
@@ -293,9 +282,9 @@ EOF
     print_success "MACS installed for ${PLATFORM}!"
     echo ""
     echo "Next steps:"
-    echo "  1. Configure ${PLATFORM} to read TASK.md, CHANGELOG.md, CONTEXT.md"
-    echo "  2. Edit TASK.md to add your first tasks"
-    echo "  3. Run: macs dashboard"
+    echo "  1. Configure ${PLATFORM} to issue MACS CLI commands (macs add, macs log)"
+    echo "  2. Run: macs add 'First task' to add your first task"
+    echo "  3. Run: macs status"
     ;;
 
   vscode)
@@ -303,7 +292,7 @@ EOF
     echo ""
 
     # Copy templates
-    "$MACS_DIR/scripts/init.sh" "$PROJECT_NAME" .
+    macs init "$PROJECT_NAME"
 
     print_warning "VS Code detected but no specific AI assistant found."
     print_info "MACS templates have been installed."
@@ -313,12 +302,12 @@ EOF
     print_info "  - Any VS Code AI extension"
 
     echo ""
-    print_success "MACS templates installed!"
+    print_success "MACS event store initialized!"
     echo ""
     echo "Next steps:"
     echo "  1. Install an AI assistant extension (Continue, Copilot, etc.)"
-    echo "  2. Configure it to read TASK.md, CHANGELOG.md, CONTEXT.md"
-    echo "  3. Edit TASK.md to add your first tasks"
+    echo "  2. Configure it to issue MACS CLI commands (macs add, macs log)"
+    echo "  3. Run: macs add 'First task' to add your first task"
     ;;
 
   generic)
@@ -326,7 +315,7 @@ EOF
     echo ""
 
     # Copy templates
-    "$MACS_DIR/scripts/init.sh" "$PROJECT_NAME" .
+    macs init "$PROJECT_NAME"
 
     print_success "MACS templates installed!"
 
@@ -334,31 +323,21 @@ EOF
     print_info "Manual configuration required for your platform."
     echo ""
     echo "To use MACS:"
-    echo "  1. Configure your AI agent to read:"
-    echo "     - TASK.md (task board)"
-    echo "     - CHANGELOG.md (change history)"
-    echo "     - CONTEXT.md (project context)"
+    echo "  1. Configure your AI agent to use MACS CLI commands:"
+    echo "     - macs status       (view task board)"
+    echo "     - macs log          (view event history)"
+    echo "     - macs workload     (agent workload overview)"
     echo ""
-    echo "  2. After each change, update:"
-    echo "     - CHANGELOG.md with: [type] description - by {agent} #tags"
-    echo "     - TASK.md: mark tasks as completed"
+    echo "  2. After each change, mark tasks done via CLI:"
+    echo "     - macs done <id>    (mark task complete)"
+    echo "     (TASK.md and CHANGELOG.md are auto-generated)"
     echo ""
-    echo "  3. Run: macs dashboard (to visualize progress)"
+    echo "  3. Run: macs status (to view progress)"
     ;;
 esac
 
 echo ""
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
-echo ""
-
-# Optional: Generate index
-if command -v node &> /dev/null; then
-  print_info "Generating MACS index for token optimization..."
-  if [ -f "$MACS_DIR/scripts/macs" ]; then
-    "$MACS_DIR/scripts/macs" index . 2>/dev/null || true
-  fi
-fi
-
 echo ""
 print_success "Installation complete!"
 echo ""

@@ -1,3 +1,5 @@
+> **Note**: This document describes v2.3 architecture. Current architecture uses JSONL Event Sourcing — see [MACS-SPEC.md](../MACS-SPEC.md) and [FAQ.md](FAQ.md).
+
 # MACS Technical Features (v2.3+)
 
 > This document explains the technical innovations that make MACS more than just "Markdown templates"

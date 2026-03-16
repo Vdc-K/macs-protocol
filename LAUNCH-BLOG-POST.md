@@ -1,3 +1,5 @@
+> **Note**: This document describes v2.3 architecture. Current architecture uses JSONL Event Sourcing — see [MACS-SPEC.md](./MACS-SPEC.md) and [FAQ.md](docs/FAQ.md).
+
 # MACS v2.2: Why AI Agents Need Documents, Not Orchestration
 
 > How we reduced token usage by 95% and LLM costs by 43% using Git + Markdown

@@ -67,7 +67,7 @@ We welcome community skill capsules! See [SKILL-CAPSULES.md](docs/SKILL-CAPSULES
 1. Maintainers review PRs within 3-5 business days
 2. Address feedback and update PR
 3. Once approved, maintainers will merge
-4. Your contribution will be credited in CHANGELOG.md
+4. Your contribution will be recorded in the project history (visible via `macs log`)
 
 ## Community Guidelines
 

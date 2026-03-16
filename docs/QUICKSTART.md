@@ -1,191 +1,112 @@
 # MACS Quick Start
 
-> Get started with MACS in 5 minutes.
+> Goal: prove a new agent framework can attach to the same `.macs/` workspace in under 5 minutes.
 
-## 1. Install MACS (30 seconds)
+## Prerequisites
 
-```bash
-# Clone the repo
-git clone https://github.com/your-org/macs.git
-cd macs
-
-# Or download as zip and extract
-```
-
-## 2. Initialize Your Project (1 minute)
+- Node.js 18+
+- A repo where your agent can run shell commands
+- `macs-protocol` installed:
 
 ```bash
-# Go to your project directory
-cd ~/my-project
-
-# Run MACS init script
-/path/to/macs/scripts/init.sh "My Project Name"
-
-# You should see:
-#  ✓ Created TASK.md
-#  ✓ Created CHANGELOG.md
-#  ✓ Created CONTEXT.md
-#  ✓ Created llms.txt
-#  ✓ Created docs/BEST-PRACTICES.md
+npm install -g macs-protocol
 ```
 
-## 3. Configure Your Project (2 minutes)
+## The 3-Command Smoke Test
+
+Run these commands in the target repo:
 
 ```bash
-# Edit llms.txt - add project description
-vim llms.txt
-
-# Edit TASK.md - add your first task
-vim TASK.md
+macs init "Interop Demo"
+macs add "Smoke test: prove another framework can pick this up" --requires review
+macs boot --agent codex-review --capabilities review --model gpt-5
 ```
 
-**Example TASK.md**:
-```markdown
-## 🔥 Current Tasks
+What each command proves:
 
-- [ ] Set up database schema - Assigned: lead → Execute: engineer - Status: In Progress
-```
+1. `macs init` creates `.macs/`, the framework-neutral workbench.
+2. `macs add` records real work in the shared protocol.
+3. `macs boot` lets an agent join late, catch up, and pick up work from the same shared state.
 
-## 4. Start Working (Agent Workflow)
+If that third command works from your framework, the framework is integrated.
 
-### For Lead (High-capability model):
+## Swap In Any Agent
 
-```
-1. Read llms.txt → Understand project structure
-2. Read TASK.md → See current priorities
-3. Plan work and break down into tasks
-4. Update TASK.md with assignments
-5. Update CHANGELOG.md:
-   - [✨ feat] Created user authentication module - by opus #design
-```
-
-### For Engineer (Balanced model):
-
-```
-1. Read llms.txt → Quick orientation
-2. Read TASK.md → Pick assigned task
-3. Read CHANGELOG.md (last 3-5 days) → Recent context
-4. Work on task
-5. Update TASK.md (move to completed)
-6. Update CHANGELOG.md:
-   - [🔧 config] Implemented JWT middleware - by sonnet #dev
-```
-
-### If Blocked:
-
-```
-1. Update task status to [BLOCKED]
-2. Move to TASK.md Escalations section
-3. Add reason and what you need from Lead
-4. Tag CHANGELOG with #escalation
-```
-
-## 5. Weekly Maintenance (Automated - Optional)
-
-Set up automatic weekly cleanup:
+Only the third command changes:
 
 ```bash
-# Using cron
-crontab -e
-
-# Add this line (every Sunday at midnight):
-0 0 * * 0 cd ~/my-project && /path/to/cleanup.sh
+macs boot --agent claude-review --capabilities review --model sonnet
+macs boot --agent cursor-review --capabilities review --model claude-4-sonnet
+macs boot --agent aider-review --capabilities review --model gpt-4.1
+macs boot --agent openclaw-review --capabilities review --model opus
 ```
 
-Or use mycc scheduler (if you have Claude Code + mycc):
-```json
-{
-  "name": "macs-weekly-cleanup",
-  "schedule": "0 0 * * 0",
-  "task": "Archive old CHANGELOG and generate weekly report"
-}
-```
+The contract stays the same:
 
-See [EVENT-TRIGGERS.md](EVENT-TRIGGERS.md) for details.
+- Read shared state from `.macs/`
+- Claim or resume work through the CLI
+- Write completion, checkpoints, reviews, or blockers back to `.macs/`
 
-## 6. (Optional) Advanced Features
+## What You Should See
 
-### QMD Search Integration
+`macs boot` prints the current project picture for that specific agent:
+
+- who the agent is
+- available or resumed task
+- unresolved blockers
+- recent handoff notes
+- current project status
+
+That is the cross-framework handoff test. The source of truth is not Cursor, Codex, or Claude Code. The source of truth is `.macs/`.
+
+## Finish The Loop
+
+Once the agent completes the smoke test task:
 
 ```bash
-# Install qmd
-brew install qmd  # or see qmd docs
-
-# Index your project
-qmd index .
-
-# Now agents can search efficiently:
-qmd query "authentication decisions"
+macs done T-001 --agent codex-review --summary "Smoke test completed" --artifacts "README.md"
+macs status
+macs log --limit 10
 ```
 
-### Skill Capsules
+This confirms the agent can both read and write the shared protocol.
 
-```bash
-# When weekly report identifies repeated patterns:
-# Create a skill capsule
+## Framework-Specific Entry Paths
 
-mkdir -p skills/my-skill
-# Follow structure in SKILL-CAPSULES.md
-```
+Use the smallest possible adapter for each framework:
 
----
+| Framework | Entry path |
+|---|---|
+| Codex | [adapters/codex/README.md](../adapters/codex/README.md) |
+| Claude Code / PACEflow | [adapters/paceflow/README.md](../adapters/paceflow/README.md) |
+| OpenClaw | [adapters/openclaw/README.md](../adapters/openclaw/README.md) |
+| Cursor | [adapters/cursor/README.md](../adapters/cursor/README.md) |
+| Aider | [adapters/aider/README.md](../adapters/aider/README.md) |
+| Claude Desktop / MCP | [adapters/mcp/README.md](../adapters/mcp/README.md) |
+| LangChain / CrewAI / AutoGen | [adapters/langchain/pymacs.py](../adapters/langchain/pymacs.py) |
 
-## Common Workflows
+## Common Failure Modes
 
-### Daily Development
+### The agent cannot run shell commands
 
-```
-Morning:
-  → Agent reads TASK.md + CHANGELOG (last 3 days)
-  → Works on assigned tasks
+Use a thin wrapper or MCP bridge so the agent can call `macs boot`, `macs done`, and `macs block`.
 
-Evening:
-  → Agent updates TASK.md (completed tasks)
-  → Agent appends to CHANGELOG.md
-```
+### The agent can read files but forgets to join MACS
 
-### Weekly Review
+Inject a tiny instruction block into the framework's native config:
 
-```
-Sunday (automated by Maintainer):
-  → Archive CHANGELOG entries >2 weeks old
-  → Generate WEEKLY-REPORT.md
-  → Identify repeated patterns
-  → Mark candidate skills
-```
+- `AGENTS.md` for Codex
+- `CLAUDE.md` for Claude-style agents
+- `.cursorrules` for Cursor
 
-### Monthly Planning
+### The repo is remote or containerized
 
-```
-End of month:
-  → Lead reviews all WEEKLY-REPORT.md files
-  → Decides which candidate skills to formalize
-  → Creates skill capsules for approved patterns
-  → Updates CONTEXT.md with major decisions
-```
+Use the transport or MCP layer instead of direct filesystem access:
 
----
+- [adapters/mcp/README.md](../adapters/mcp/README.md)
+- `.macs/transport/server.ts`
 
-## Troubleshooting
+## Next
 
-**Q: Agent doesn't know what to do**
-→ Check llms.txt and TASK.md are in project root
-
-**Q: CHANGELOG getting too large**
-→ Run manual archive: move old entries to `archive/CHANGELOG-YYYY-MM.md`
-
-**Q: Multiple agents editing same file**
-→ Use Git branches per agent/team (see ENTERPRISE-TEAMS.md)
-
-**Q: How to use with Cursor/other IDEs?**
-→ Templates work anywhere. Copy templates manually if init.sh doesn't work.
-
----
-
-## Next Steps
-
-- Read [BEST-PRACTICES.md](BEST-PRACTICES.md) for detailed workflows
-- Explore [ENTERPRISE-TEAMS.md](ENTERPRISE-TEAMS.md) for multi-team projects
-- Check [SKILL-CAPSULES.md](SKILL-CAPSULES.md) for advanced skill sharing
-
-**Questions?** Open an issue or join OpenClaw community.
+- Read [PLATFORM-COMPATIBILITY.md](./PLATFORM-COMPATIBILITY.md) for concrete integration paths.
+- Read [../README.md](../README.md) for positioning and architecture.

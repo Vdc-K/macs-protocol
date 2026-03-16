@@ -1,328 +1,188 @@
-# MACS Platform Compatibility Matrix
+# MACS Platform Compatibility
 
-> Complete guide to using MACS across different AI platforms
+> The question is not "does this framework have built-in agent tooling?"
+>
+> The question is "how does this framework attach to the same `.macs/` workbench as every other framework?"
 
----
+## Decision Rule
 
-## 📊 Compatibility Matrix
+- If your team stays inside one framework, start with that framework's built-in tools.
+- If work crosses frameworks, give every framework the same `.macs/` state and the same `macs boot` entry point.
 
-| Platform | Support Level | Installation | Token Optimization | Dashboard | Notes |
-|----------|--------------|--------------|-------------------|-----------|-------|
-| **Claude Code** | ⭐⭐⭐⭐⭐ | `install.sh` | ✅ | ✅ | Native SKILL.md |
-| **Cursor** | ⭐⭐⭐⭐⭐ | `install.sh` | ✅ | ✅ | .cursorrules auto-config |
-| **Continue.dev** | ⭐⭐⭐⭐ | `install.sh` | ✅ | ✅ | Context providers |
-| **OpenClaw** | ⭐⭐⭐⭐⭐ | `install.sh` | ✅ | ✅ | Native stigmergy |
-| **ZeroClaw** | ⭐⭐⭐ | `install.sh` | ✅ | ✅ | Template-based |
-| **NanoClaw** | ⭐⭐⭐ | `install.sh` | ✅ | ✅ | Template-based |
-| **LangChain** | ⭐⭐⭐⭐ | `pip install` | ✅ | ✅ | Python SDK (pymacs) |
-| **CrewAI** | ⭐⭐⭐⭐ | `pip install` | ✅ | ✅ | Python SDK (pymacs) |
-| **AutoGen** | ⭐⭐⭐⭐ | `pip install` | ✅ | ✅ | Python SDK (pymacs) |
-| **Windsurf** | ⭐⭐ | Manual | ⚠️ | ✅ | Untested |
-| **VS Code + Copilot** | ⭐⭐ | Manual | ⚠️ | ✅ | Manual config |
-| **Antigravity** | ❌ | N/A | ❌ | ❌ | No file system |
-| **OpenAI Codex** | ⚠️ | Via LangChain | ⚠️ | ✅ | Needs orchestration |
+## Integration Matrix
 
-**Legend:**
-- ⭐⭐⭐⭐⭐ = Full support, tested
-- ⭐⭐⭐⭐ = Full support, community-tested
-- ⭐⭐⭐ = Basic support, needs manual config
-- ⭐⭐ = Experimental
-- ❌ = Not compatible
-- ⚠️ = Limited / untested
+| Framework | Status | How it attaches to `.macs/` | Concrete path |
+|---|---|---|---|
+| Claude Code / PACEflow | Native + hooks | Hooks call MACS during session lifecycle | [adapters/paceflow/README.md](../adapters/paceflow/README.md) |
+| Codex | Manual but direct | `AGENTS.md` instructs Codex to call `macs boot` | [adapters/codex/README.md](../adapters/codex/README.md) |
+| OpenClaw | Manual but direct | `CLAUDE.md` injects the MACS protocol block | [adapters/openclaw/README.md](../adapters/openclaw/README.md) |
+| Cursor | Native prompt rules | `.cursorrules` points Cursor at MACS files and commands | [adapters/cursor/README.md](../adapters/cursor/README.md) |
+| Aider | Wrapper-based | Wrapper claims work, boots context, then launches Aider | [adapters/aider/README.md](../adapters/aider/README.md) |
+| Continue.dev | Context-provider based | `.continue/config.json` exposes MACS files to prompts | This document |
+| LangChain / CrewAI / AutoGen | SDK | Python API reads and writes `.macs/` directly | [adapters/langchain/pymacs.py](../adapters/langchain/pymacs.py) |
+| Claude Desktop | MCP | MACS is exposed as MCP tools | [adapters/mcp/README.md](../adapters/mcp/README.md) |
+| Remote / cloud agents | HTTP transport | Use REST + SSE against the same project state | `.macs/transport/server.ts` |
+| Generic shell-capable agents | Minimal | Run `macs boot`, `macs done`, `macs block` | [docs/QUICKSTART.md](./QUICKSTART.md) |
 
----
+## Claude Code / PACEflow
 
-## 🚀 Installation Guides
+Best when you want Claude-native quality gates plus shared cross-framework state.
 
-### Claude Code
+Entry path:
 
-**Automatic Installation**:
 ```bash
-cd your-project
-/path/to/macs/install.sh
+macs install-hooks --mode pace
 ```
 
-**What Happens**:
-1. Creates `.claude/skills/macs/SKILL.md`
-2. Copies templates (TASK.md, CHANGELOG.md, CONTEXT.md)
-3. Generates index
+Or:
 
-**Usage**:
-```
-/macs init "Project Name"
-/macs status
-/macs dashboard
-```
-
-**Docs**: [adapters/claude-code/README.md](../adapters/claude-code/README.md)
-
----
-
-### Cursor
-
-**Automatic Installation**:
 ```bash
-cd your-project
-/path/to/macs/install.sh
+bash adapters/paceflow/install.sh
 ```
 
-**What Happens**:
-1. Copies templates
-2. Appends MACS instructions to `.cursorrules`
-3. Generates index
+What this gives you:
 
-**Usage**:
-- Cursor automatically reads `.cursorrules`
-- No special commands needed
-- Update CHANGELOG.md after changes
+- Claude session hooks
+- plan-before-write gates
+- checkpoint enforcement
+- shared task state in `.macs/`
 
-**Docs**: [adapters/cursor/README.md](../adapters/cursor/README.md)
+Docs: [adapters/paceflow/README.md](../adapters/paceflow/README.md)
 
----
+## Codex
 
-### Continue.dev
+Best when Codex should join the same repo as a reviewer, implementer, or second opinion.
 
-**Automatic Installation**:
+Entry path:
+
 ```bash
-cd your-project
-/path/to/macs/install.sh
+cat adapters/codex/macs-context.md >> AGENTS.md
 ```
 
-**What Happens**:
-1. Copies templates
-2. Creates `.continue/config.json` with MACS context providers
-3. Generates index
+Then Codex sessions use the normal MACS commands:
 
-**Usage**:
-```
-@macs-task What are the current tasks?
-@macs-changelog What changed recently?
-/macs-update Update CHANGELOG with my changes
-```
-
-**Docs**: [adapters/continue/README.md](../adapters/continue/README.md)
-
----
-
-### OpenClaw / ZeroClaw / NanoClaw
-
-**Installation**:
 ```bash
-cd your-project
-/path/to/macs/install.sh
+macs boot --agent codex-review --capabilities review --model gpt-5
+macs done T-001 --agent codex-review --summary "Review complete"
 ```
 
-**What Happens**:
-- Copies templates (OpenClaw natively supports stigmergy)
-- Generates index
+Docs: [adapters/codex/README.md](../adapters/codex/README.md)
 
-**Usage**:
-- OpenClaw automatically reads MACS documents
-- No special configuration needed
+## OpenClaw
 
-**Docs**: [adapters/openclaw/README.md](../adapters/openclaw/README.md)
+Best when you want session-based Claude-style agents to resume work cleanly.
 
----
+Entry path:
 
-### LangChain / CrewAI / AutoGen (Python)
-
-**Installation**:
 ```bash
-pip install pymacs
+cat adapters/openclaw/macs-context.md >> CLAUDE.md
 ```
 
-**Usage**:
-```python
-from pymacs import MACS
+Docs: [adapters/openclaw/README.md](../adapters/openclaw/README.md)
 
-# Initialize
-macs = MACS.init("My Project", path="./my-project")
+## Cursor
 
-# Query recent changes
-changes = macs.query_changelog(type='feat', since='2026-02-20')
+Best when Cursor should stay inside its own UX but still follow shared task state.
 
-# Add entry
-macs.add_changelog(
-    type='feat',
-    content='Implemented new feature',
-    author='langchain-agent',
-    tags=['#dev', '#api']
-)
+Entry path:
 
-# Generate index (for token optimization)
-macs.generate_index()
-```
-
-**LangChain Integration**:
-```python
-from pymacs import create_macs_tools
-from langchain.agents import initialize_agent
-
-tools = create_macs_tools(project_path="./my-project")
-agent = initialize_agent(tools, llm, agent="zero-shot-react-description")
-
-agent.run("What are the recent changes?")
-agent.run("Add a changelog entry: Implemented user auth")
-```
-
-**Docs**: [adapters/langchain/README.md](../adapters/langchain/README.md)
-
----
-
-### VS Code (Generic)
-
-**Manual Installation**:
 ```bash
-cd your-project
-/path/to/macs/install.sh
+./install.sh
 ```
 
-**Configuration** (for GitHub Copilot / other extensions):
+That adds MACS guidance to `.cursorrules`. Cursor then reads MACS instructions before work and writes back after work.
 
-1. Add to workspace settings (`.vscode/settings.json`):
+Docs: [adapters/cursor/README.md](../adapters/cursor/README.md)
+
+## Aider
+
+Best when you want multiple CLI coding agents sharing one queue.
+
+Entry path:
+
+```bash
+./adapters/aider/macs-aider.sh
+```
+
+What the wrapper does:
+
+- registers the agent
+- claims a task
+- injects MACS context
+- records completion when Aider exits
+
+Docs: [adapters/aider/README.md](../adapters/aider/README.md)
+
+## Continue.dev
+
+Best when you want VS Code-native prompts to see `.macs/` files.
+
+Entry path:
+
 ```json
 {
-  "github.copilot.chat.welcome": [
-    "Before starting work, read TASK.md, CHANGELOG.md, CONTEXT.md",
-    "After changes, update CHANGELOG.md with: [type] description - by copilot #tags"
+  "contextProviders": [
+    { "name": "macs-status", "params": { "filepath": ".macs/human/STATUS.md" } },
+    { "name": "macs-task", "params": { "filepath": ".macs/human/TASK.md" } },
+    { "name": "macs-changelog", "params": { "filepath": ".macs/human/CHANGELOG.md" } }
   ]
 }
 ```
 
-2. Use in prompts:
-```
-@workspace Read TASK.md and tell me what to work on next
-```
-
-**Docs**: [adapters/vscode/README.md](../adapters/vscode/README.md)
-
----
-
-## 🔧 Advanced Integrations
-
-### GitHub Actions
-
-Automate weekly reports:
-
-```yaml
-# .github/workflows/macs-weekly-report.yml
-name: MACS Weekly Report
-
-on:
-  schedule:
-    - cron: '0 0 * * 0'  # Every Sunday midnight
-
-jobs:
-  report:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-      - name: Generate weekly report
-        run: npx macs weekly-report
-      - name: Commit report
-        run: |
-          git config user.name "MACS Bot"
-          git add WEEKLY-REPORT.md
-          git commit -m "chore: weekly MACS report"
-          git push
-```
-
----
-
-### Docker
-
-Run MACS dashboard in Docker:
+Then instruct Continue to call:
 
 ```bash
-docker run -v $(pwd):/project -p 3456:3456 macs/dashboard
+macs boot --agent continue-dev --capabilities docs,review --model sonnet
 ```
 
-Generate index in Docker:
+## LangChain / CrewAI / AutoGen
 
-```bash
-docker run -v $(pwd):/project macs/cli index /project
+Best when the framework is already code-driven and you want direct protocol access.
+
+Entry path:
+
+```python
+from pymacs import MACS
+
+macs = MACS.init("My Project", path="./my-project")
+status = macs.get_status()
 ```
 
----
+Docs: [adapters/langchain/pymacs.py](../adapters/langchain/pymacs.py)
 
-### CI/CD Integration
+## Claude Desktop / MCP
 
-**GitLab CI**:
-```yaml
-macs-index:
-  stage: build
-  script:
-    - npm install -g macs-cli
-    - macs index .
-  artifacts:
-    paths:
-      - .macs/index.json
-```
+Best when an agent cannot access the repo filesystem directly but can use MCP tools.
 
-**Jenkins**:
-```groovy
-stage('MACS Index') {
-  steps {
-    sh 'macs index .'
+Entry path:
+
+```json
+{
+  "mcpServers": {
+    "macs": {
+      "command": "npx",
+      "args": [
+        "tsx",
+        "/path/to/macs-skill/adapters/mcp/macs-mcp-server.ts",
+        "/path/to/your/project"
+      ]
+    }
   }
 }
 ```
 
----
+Docs: [adapters/mcp/README.md](../adapters/mcp/README.md)
 
-## 📊 Feature Comparison
+## Generic Pattern
 
-| Feature | CLI | Claude Code | Cursor | LangChain | Continue |
-|---------|-----|-------------|--------|-----------|----------|
-| **Auto-detect platform** | ✅ | N/A | N/A | N/A | N/A |
-| **Token optimization** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Dashboard** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Auto-update CHANGELOG** | ❌ | ⚠️ | ⚠️ | ✅ | ⚠️ |
-| **Git integration** | ✅ | ✅ | ✅ | ⚠️ | ✅ |
-| **Multi-agent sync** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Escalation tracking** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Weekly reports** | ✅ | ⚠️ | ⚠️ | ✅ | ⚠️ |
+If your framework is not listed, integrate the minimum contract:
 
----
+1. Call `macs boot --agent <id> --capabilities <caps> --model <model>` at session start.
+2. Call `macs done`, `macs block`, or `macs checkpoint` before the session ends.
+3. Point the framework at one native instruction file:
+   - `AGENTS.md`
+   - `CLAUDE.md`
+   - `.cursorrules`
+   - equivalent system prompt file
 
-## 🆕 Upcoming Platforms
-
-### Planned Support (v2.4+)
-
-- **Windsurf (Codeium)** - Full support planned
-- **Zed Editor** - Investigating
-- **Neovim + AI plugins** - Community request
-- **JetBrains AI Assistant** - Investigating
-- **Amazon CodeWhisperer** - Low priority
-
----
-
-## 🤝 Contributing Platform Adapters
-
-Want to add support for a new platform?
-
-1. Create `adapters/{platform}/`
-2. Add installation script
-3. Write README with usage examples
-4. Test with real projects
-5. Submit PR with compatibility info
-
-**Template**: [adapters/_template/](../adapters/_template/)
-
----
-
-## 📞 Support
-
-**Platform-specific issues**:
-- Claude Code: GitHub Issues with `platform:claude-code` label
-- Cursor: GitHub Issues with `platform:cursor` label
-- LangChain: GitHub Issues with `platform:langchain` label
-
-**General questions**: GitHub Discussions
-
----
-
-## 📄 License
-
-MIT © 2026 HH & OpenClaw Community
+If those 3 conditions are true, the framework can join the same shared workbench.

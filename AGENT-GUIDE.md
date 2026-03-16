@@ -150,7 +150,7 @@ macs generate                        # Refresh human/ Markdown
 │   ├── tasks.jsonl      ← Task lifecycle events (append-only, don't edit)
 │   ├── events.jsonl     ← All events (append-only, don't edit)
 │   ├── state.json       ← Current state snapshot (auto-generated, read-only)
-│   └── agents.json      ← Agent registry (auto-generated)
+│   └── state.json       ← Agent registry + task state (auto-generated)
 │
 ├── sync/inbox/<your-id>/
 │   └── messages.jsonl   ← Your messages

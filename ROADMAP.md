@@ -1,6 +1,6 @@
 # MACS Roadmap
 
-> **定位**：Git for AI Agents — 工作协调层
+> **定位**：The Universal Workbench for AI Agents — 跨框架工作协调层
 > **架构**：JSONL Event Sourcing + 自动生成 Markdown
 > **更新**：2026-02-28
 
@@ -39,7 +39,7 @@ Phase 1        Phase 2              Phase 3           Phase 4
 │   ├── tasks.jsonl    # 任务生命周期事件
 │   ├── events.jsonl   # 全局事件流
 │   ├── state.json     # 当前状态快照
-│   └── agents.json    # Agent 注册表
+│   └── state.json     # Agent 注册表
 ├── sync/inbox/        ← Agent 间通信
 └── human/             ← 自动生成 Markdown（给人看）
 ```

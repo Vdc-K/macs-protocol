@@ -1,15 +1,15 @@
 # MACS — The Universal Workbench for AI Agents
 
-> Claude Code, Codex, Cursor, Devin, Windsurf — every agent speaks a different language.
+> Claude Code, Codex, Cursor, Aider, OpenClaw, LangChain agents can keep their own UX and still share one workbench.
 >
-> **MACS gives them one shared workbench.** Any agent that can read/write files can join. No servers, no setup, just JSONL + Git.
+> **MACS gives every agent the same project state through `.macs/`.** No central SaaS. No vendor lock-in. Just files, Git, and a protocol.
 
 [![npm](https://img.shields.io/npm/v/macs-protocol)](https://www.npmjs.com/package/macs-protocol)
 [![tests](https://img.shields.io/badge/tests-123%20passing-brightgreen)](#)
 [![license](https://img.shields.io/badge/license-MIT-blue)](#license)
 [![GitHub Stars](https://img.shields.io/github/stars/Vdc-K/macs-protocol?style=social)](https://github.com/Vdc-K/macs-protocol/stargazers)
 
-[English](#quick-start) | [中文](#中文)
+[English](#five-minute-integration-test) | [中文](#中文)
 
 ---
 
@@ -17,293 +17,182 @@
 
 ![MACS swarm demo](./demo.svg)
 
-**One command. 5 agents. 12 tasks. Dependency-ordered, zero conflicts.**
-
----
+**One workbench. Multiple frameworks. Shared state, shared handoffs, zero blind spots.**
 
 ## The Problem
 
-Every AI coding agent is powerful alone. But they can't work together:
+The hard part is no longer "multiple agents might conflict."
 
+The hard part is this:
+
+```text
+Claude Code creates task T-007 and changes the API contract
+Codex reviews an older assumption because it cannot see Claude's task state
+Cursor keeps editing the same frontend flow with stale context
+→ each tool is locally smart, but globally blind
 ```
-Claude Code writes the backend    — doesn't know Cursor is redesigning the API
-Codex reviews the PR              — doesn't know Devin already deployed a fix
-Windsurf runs the tests           — doesn't know the schema changed 10 minutes ago
-→ Everyone's working. Nobody's coordinating. Everything breaks.
+
+Built-in tools coordinate agents inside one framework.
+They do not create a shared work surface across frameworks.
+
+## `.macs/` Is The Shared Workbench
+
+```text
+Claude Code hooks / Agent Teams  ┐
+Codex + AGENTS.md               │
+Cursor + .cursorrules           │
+Aider wrapper                   ├─► .macs/
+OpenClaw + CLAUDE.md            │    ├── protocol/   append-only JSONL state
+LangChain / CrewAI SDK          │    ├── sync/       agent inboxes and handoffs
+Claude Desktop via MCP          │    ├── human/      Markdown for humans
+Cloud / CI agents via HTTP      ┘    └── transport/  remote access when filesystem is not shared
 ```
 
-Each agent has its own built-in task system (Claude Code has Agent Teams, Cursor has Composer, Codex has its own context). But **none of them can see what the others are doing.**
+Every framework keeps its native runtime and UX.
+They just converge on one neutral state directory that humans can inspect and Git can version.
 
-**A2A/MCP solve how agents talk. MACS solves how agents work together — regardless of which framework they run on.**
+### What Lives In `.macs/`
 
-### Why not just use each agent's built-in tools?
-
-Built-in tools (like Claude Code's Agent Teams) are great — **within that agent's ecosystem.** But the moment you involve a second framework, you need a shared layer:
-
-| Scenario | Built-in tools | MACS |
-|----------|---------------|------|
-| 3 Claude Code agents on one project | ✅ Agent Teams works | ✅ Also works |
-| Claude Code + Codex + Cursor together | ❌ No shared state | ✅ File-based protocol, any agent joins |
-| Agent dies mid-task, different agent picks up | ❌ Context lost | ✅ Event sourcing preserves everything |
-| Human wants one dashboard across all agents | ❌ Check each tool | ✅ `macs status` shows all |
-
-## How It Works
-
-```
+```text
 .macs/
-├── protocol/          ← Agents read/write here (JSONL, fast, no conflicts)
-│   ├── tasks.jsonl    # Task lifecycle events (append-only)
-│   ├── events.jsonl   # All changes, decisions, conflicts
-│   ├── events/        # Per-agent shards (optional, events_sharding: true)
-│   ├── state.json     # Current snapshot (auto-rebuilt)
-│   └── agents.json    # Who's here, what can they do
-│
-├── sync/inbox/        ← Agent-to-agent messaging
-│   ├── agent-001/
-│   └── agent-002/
-│
-├── transport/         ← HTTP Transport API (v5, for remote/cloud agents)
-│   ├── server.ts      # REST + SSE server (port 7474)
-│   └── storage.ts     # StorageBackend abstraction
-│
-├── plugins/           ← Auto-loaded plugin hooks
-│   └── my-plugin.js
-│
-└── human/             ← Auto-generated Markdown (for you to read)
-    ├── TASK.md
-    └── CHANGELOG.md
+├── protocol/
+│   ├── tasks.jsonl    # Task lifecycle events
+│   ├── events.jsonl   # Decisions, checkpoints, breaking changes, reviews
+│   ├── state.json     # Rebuilt snapshot (auto-generated, read-only)
+│   └── state.json     # Agent registry + task state (auto-generated)
+├── sync/
+│   └── inbox/         # Agent-to-agent messages
+├── human/
+│   ├── STATUS.md      # Project summary for humans or simple tools
+│   ├── TASK.md        # Generated task board
+│   └── CHANGELOG.md   # Generated activity log
+├── transport/
+│   └── server.ts      # REST + SSE for remote agents
+└── plugins/
+    └── *.js           # Lifecycle hooks
 ```
 
-**Agents write JSONL → Humans read Markdown. Best of both worlds.**
+## Why Not Built-In Tools?
 
-## Quick Start
+If your whole team lives inside one product, use the built-in tools first.
+MACS matters when a second framework enters the repo.
+
+| Question | Built-in tools inside one framework | MACS |
+|---|---|---|
+| Great for one vendor's agent runtime? | Yes | Usually overkill |
+| Claude Code ↔ Codex ↔ Cursor share one task state? | No | Yes |
+| Shared append-only work log in Git? | Usually scattered or tool-specific | Yes |
+| Human-readable audit trail? | Partial | Yes, via `.macs/human/` |
+| Survives switching frameworks mid-task? | Manual | Yes, via `macs boot` + handoff events |
+| Best fit | Single-framework teams | Mixed-framework teams |
+
+Examples:
+
+- Claude Code Agent Teams and PACEflow are good at coordinating Claude Code agents.
+- Cursor rules are good at steering Cursor.
+- Aider wrappers are good at one or more Aider processes.
+- MACS is the neutral layer they can all see together.
+
+## Five-Minute Integration Test
+
+Install once:
 
 ```bash
 npm install -g macs-protocol
-
-cd my-project
-macs init "My Project"
-
-# Launch 5 agents on 12 tasks — dependency-ordered, zero conflicts
-macs swarm --agents "lead:architect|eng1:backend,api|eng2:frontend|qa:testing|devops:infra" --simulate
 ```
 
-### Agent session (one command)
+Then run these 3 commands in any repo:
 
 ```bash
-# Boot: register → check inbox → show status → recommend next task
-macs boot --agent eng1-sonnet --capabilities backend,api
+macs init "Interop Demo"
+macs add "Smoke test: prove another framework can pick this up" --requires review
+macs boot --agent codex-review --capabilities review --model gpt-5
 ```
 
-### Human commands
+What this proves:
+
+- Command 1 creates the shared workbench: `.macs/`
+- Command 2 writes framework-neutral work into the protocol
+- Command 3 lets any agent attach, catch up, read inbox, and pick the next task
+
+Swap only the agent identity on command 3:
 
 ```bash
-macs status          # Project overview (tasks, agents, review queue, escalations)
-macs log             # Immutable event history
-macs impact src/auth # Which agents/tasks does this file affect?
-macs drift           # Silent tasks (agents may be stuck)
+macs boot --agent claude-review --capabilities review --model sonnet
+macs boot --agent cursor-review --capabilities review --model claude-4-sonnet
+macs boot --agent aider-review --capabilities review --model gpt-4.1
 ```
 
-## Why MACS?
-
-### vs. just using Git
-
-Git tracks file changes. MACS tracks **who's doing what, what depends on what, and who gets affected by changes.**
-
-### Comparison
-
-|  | **MACS** | A2A / MCP | LangGraph | CrewAI |
-|--|----------|-----------|-----------|--------|
-| **Layer** | Work coordination | Communication | Orchestration | Orchestration |
-| **Analogy** | Git | HTTP | Airflow | Supervisor |
-| **State model** | Event sourcing (JSONL) | Message passing | Graph nodes | Sequential tasks |
-| **Multi-agent** | Native (swarm, handoff) | Protocol only | Manual wiring | Role-based |
-| **Requires server** | No — just files + Git | Yes | No | No |
-| **Works offline** | ✅ | ❌ | ✅ | ✅ |
-| **Session continuity** | ✅ `macs boot` | ❌ | ❌ | ❌ |
-| **Dead agent recovery** | ✅ Auto-reap | ❌ | ❌ | ❌ |
-| **Human oversight** | ✅ Built-in escalation | ❌ | Partial | Partial |
-| **Any LLM / framework** | ✅ File-based | Depends | Partial | Partial |
-
-> **MACS is complementary to A2A/MCP** — use MCP for agent-to-tool calls, A2A for cross-org agent communication, and MACS for coordinating the actual work.
-
-## Key Features
-
-**Event Sourcing** — Every action is an append-only event. No conflicts, full history, any state can be rebuilt.
-
-```jsonl
-{"spec_version":"4.1","type":"task_created","id":"T-001","ts":"...","by":"lead-opus","data":{"title":"Add auth"}}
-{"spec_version":"4.1","type":"task_assigned","id":"T-001","ts":"...","by":"lead-opus","data":{"assignee":"engineer-sonnet"}}
-{"spec_version":"4.1","type":"task_completed","id":"T-001","ts":"...","by":"engineer-sonnet","data":{"artifacts":["src/auth.ts"]}}
-```
-
-**Capability Routing** — Tasks declare `requires_capabilities`. Only capable agents can claim them.
-
-```bash
-macs create "Train embedding model" --requires ml,gpu
-macs claim --agent ml-agent   # skips tasks it can't do
-```
-
-**Forced Handoff** — Blocking or cancelling a task requires `--next`. No context ever lost between sessions.
-
-```bash
-macs block T-007 --reason "need OAuth decision" \
-  --next "wire JWT into middleware" \
-  --done "schema designed" --issue "refresh token unspecified"
-```
-
-**Review Chain** — Agents can request peer review before marking done. Approved → completed. Rejected → back to in_progress.
-
-```bash
-macs review T-009 --agent lead-opus --result approved --note "LGTM"
-```
-
-**Escalation** — Blocked on a human decision? Escalate and optionally auto-resume after timeout.
-
-```bash
-macs escalate T-012 --reason "GDPR compliance sign-off needed" --to cto --timeout 60
-```
-
-**Dead Agent Reaping** — Silent agents are detected and their tasks reassigned automatically.
-
-```bash
-macs reap --threshold 45   # mark agents silent > 45 min as dead, reassign tasks
-```
-
-**Smart Drift Detection** — Identifies agents spinning in circles (same file edited 3+ times) or drifting off-goal.
-
-**Swarm Orchestration** — `macs swarm` auto-distributes tasks across N agents in dependency-ordered rounds.
-
-**Plugin System (v4)** — Drop a `.js` file in `.macs/plugins/` to hook into any lifecycle event. Slack, webhooks, custom triggers — zero config.
-
-```js
-export default {
-  hooks: {
-    onTaskCompleted: (task) => notifySlack(`✅ ${task.title} done`),
-    onEscalation: (task) => page_oncall(task),
-  }
-}
-```
-
-**MCP Bridge (v4)** — Connect Claude Desktop directly to your MACS project. 14 MCP tools: create tasks, claim work, review, escalate — all from natural language.
-
-**Skill Marketplace (v5.3)** — Install Claude Code skills directly from the community registry or any GitHub repo.
-
-```bash
-macs skill list                          # browse available skills
-macs skill install knowledge-graph       # install from registry
-macs skill install github:user/repo      # install any skill from GitHub
-macs skill search graph                  # search by keyword
-```
-
-Skills install to `.claude/skills/` and are auto-loaded by Claude Code on next launch. Submit your skill to the registry via PR to [skills/registry.json](./skills/registry.json).
-
-**Templates (v4)** — Bootstrap a full multi-agent project in one command.
-
-```bash
-macs template use saas-mvp      # 12 tasks, auth + API + dashboard + billing
-macs template use data-pipeline # ingest → process → store
-```
-
-**CI/CD Integration (v4)** — Detect stale tasks, dead agents, and blocked work in your pipeline.
-
-```bash
-macs ci --stale-hours 24 --json   # exits 1 if project is unhealthy
-```
-
-**HTTP Transport API (v5)** — Run a lightweight server so cloud agents, CI runners, and containers can participate without filesystem access.
-
-```bash
-npx tsx .macs/transport/server.ts --project . --port 7474
-# GET /macs/state  POST /macs/events/task  GET /macs/stream (SSE)
-```
-
-**Formal Protocol Spec (v4.1)** — [MACS-SPEC.md](./MACS-SPEC.md) defines the full protocol: event schema, state rebuild algorithm, agent lifecycle, and conformance requirements. Build your own conforming implementation.
-
-**Human-Readable Output** — `human/` directory auto-generates Markdown from JSONL. You never lose readability.
+If a tool can run one shell command, or can be nudged to do so from `AGENTS.md`, `CLAUDE.md`, or `.cursorrules`, it can join the same `.macs/` workspace.
 
 ## Platform Support
 
-**MACS is framework-agnostic by design.** The protocol is just files — any agent that can read/write to disk (or HTTP) can participate.
+Every integration below resolves to the same `.macs/` directory. The only thing that changes is how the agent is told to call `macs boot`, `macs done`, and `macs block`.
 
-| Platform | Integration | How it joins |
-|----------|------------|-------------|
-| **Claude Code** | Hooks + CLI | `macs install-hooks` — quality gates via PreToolUse/Stop hooks |
-| **Codex (OpenAI)** | CLI + file-based | Reads `.macs/` state, writes events via CLI or directly |
-| **Cursor** | Adapter | `.cursorrules` integration |
-| **Devin / Windsurf** | File-based | Any agent that reads files → instant participant |
-| **Aider / Continue** | Adapter | CLI commands in agent prompts |
-| **LangChain / CrewAI / AutoGen** | Python SDK | `from macs import MACSClient` |
-| **Remote / Cloud agents** | HTTP Transport | REST + SSE on port 7474 — no filesystem needed |
+| Framework | Integration path | Concrete file or command |
+|---|---|---|
+| Claude Code / PACEflow | Hook quality gates + same MACS CLI | [adapters/paceflow/README.md](./adapters/paceflow/README.md) |
+| Codex | Add MACS protocol block to `AGENTS.md` | [adapters/codex/README.md](./adapters/codex/README.md) |
+| OpenClaw | Append MACS protocol block to `CLAUDE.md` | [adapters/openclaw/README.md](./adapters/openclaw/README.md) |
+| Cursor | Inject MACS instructions into `.cursorrules` | [adapters/cursor/README.md](./adapters/cursor/README.md) |
+| Aider | Use wrapper that auto-claims and boots tasks | [adapters/aider/README.md](./adapters/aider/README.md) |
+| Continue.dev | Add `.macs` files as context providers | [docs/PLATFORM-COMPATIBILITY.md](./docs/PLATFORM-COMPATIBILITY.md) |
+| LangChain / CrewAI / AutoGen | Import the Python SDK and read/write `.macs/` | [adapters/langchain/pymacs.py](./adapters/langchain/pymacs.py) |
+| Claude Desktop / remote agents | Expose MACS as MCP tools or HTTP transport | [adapters/mcp/README.md](./adapters/mcp/README.md) |
 
-```bash
-# One-line install, auto-detects your platform
-./install.sh
-```
-
-### The 5-minute integration test
-
-If your agent can do these 3 things, it works with MACS:
+## Core Workflow
 
 ```bash
-# 1. Read current state
-cat .macs/protocol/state.json
-
-# 2. Claim a task
-macs claim T-001 --agent my-agent
-
-# 3. Mark it done
-macs done T-001 --summary "implemented auth endpoint"
+macs init "My Project"
+macs add "Implement auth API" --requires backend,api
+macs boot --agent backend-sonnet --capabilities backend,api --model sonnet
+macs done T-001 --agent backend-sonnet --summary "JWT auth live" --artifacts "src/auth.ts"
 ```
 
-That's it. No SDK required. No server required. Just files.
+If the agent gets blocked:
 
-## Positioning
-
+```bash
+macs block T-001 --agent backend-sonnet \
+  --reason "Need OAuth provider decision" \
+  --next "JWT middleware is ready; plug provider into src/auth.ts" \
+  --done "login + refresh flow implemented" \
+  --issue "provider contract unresolved"
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Your Project                             │
-│                                                                 │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
-│   │  Claude   │  │  Codex   │  │  Cursor  │  │  Devin   │ ...  │
-│   │  Code     │  │          │  │          │  │          │      │
-│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘      │
-│        │              │              │              │            │
-│        └──────────────┴──────────────┴──────────────┘            │
-│                              │                                   │
-│                    ┌─────────▼─────────┐                        │
-│                    │    .macs/ (JSONL)  │                        │
-│                    │                   │                        │
-│                    │  Tasks · Events   │                        │
-│                    │  State · Inbox    │                        │
-│                    └───────────────────┘                        │
-│                                                                 │
-│   Any agent that reads/writes files → instant participant       │
-└─────────────────────────────────────────────────────────────────┘
 
-Communication Layer     Work Layer          Capability Layer
-(how agents talk)      (how agents        (how agents evolve)
-                        coordinate)
-┌──────────────┐       ┌──────────┐       ┌──────────────┐
-│ A2A (Google) │       │   MACS   │       │ EvoMap (GEP) │
-│ MCP (Anthr.) │       │          │       │              │
-│ ACP (IBM)    │       │          │       │              │
-└──────────────┘       └──────────┘       └──────────────┘
+## What MACS Adds
 
-Three layers, complementary, not competing.
+- **Event sourcing**: append-only history that any framework can rebuild
+- **Capability routing**: only compatible agents claim compatible work
+- **Forced handoff**: blocked or cancelled tasks must leave structured context
+- **Review chain**: agents can request approval before a task becomes complete
+- **Inbox and escalation**: agents can message each other or escalate to humans
+- **Drift detection**: identify silent or spinning agents before work rots
+- **Swarm orchestration**: assign dependency-ordered work across many agents
+- **Transport options**: local files first, HTTP and MCP when needed
+
+## Where MACS Sits
+
+```text
+Communication layer     Shared workbench       Capability layer
+(how agents talk)      (how frameworks share) (how agents evolve)
+
+A2A / MCP / ACP   →    MACS (.macs/)     →    Skills / eval / routing / memory
 ```
+
+A2A and MCP solve how agents talk.
+MACS solves how agents working in different frameworks see the same work.
 
 ## Roadmap
 
-- [x] **v3.0** — JSONL Protocol, Event Sourcing, Agent SDK, inbox messaging, swarm, forced handoff, drift detection, task decomposition
-- [x] **v3.1** — Capability routing, load balancing, review chain, escalation protocol, dead agent reaping
-- [x] **v3.2** — Smart drift analysis (spin detection + goal deviation), Dashboard v2 (real-time SSE + D3 graph)
-- [x] **v4.0** — Plugin system, MCP bridge (14 tools), template market, CI/CD integration (123 tests)
-- [x] **v4.1** — Formal protocol spec (MACS-SPEC.md), `spec_version` in all events, agent `instance_id`/`session_id`
-- [x] **v5.0** — HTTP Transport API (REST + SSE), per-agent event sharding, StorageBackend abstraction
-- [x] **v5.1** — Easy mode CLI (`macs add`, auto-claim `macs start`), simplified help
-- [x] **v5.2** — Superpowers plan import (`macs import-plan`), PACEflow hooks (`macs install-hooks`)
-- [x] **v5.3** — Skill Marketplace (`macs skill install/list/search`), community registry
+- [x] **v3.0** — JSONL protocol, event sourcing, inbox messaging, swarm, forced handoff
+- [x] **v3.1** — Capability routing, review chain, escalation protocol, dead agent reaping
+- [x] **v4.0** — Plugin system, MCP bridge, template market, CI/CD integration
+- [x] **v4.1** — Formal protocol spec, `spec_version`, agent `instance_id` and `session_id`
+- [x] **v5.0** — HTTP transport API, per-agent event sharding, storage abstraction
+- [x] **v5.1** — Easy-mode CLI (`macs add`, auto-claim `macs start`)
+- [x] **v5.2** — Superpowers plan import, PACEflow hooks
+- [x] **v5.3** — Skill marketplace
+- [x] **v5.4** — first end-to-end cross-framework demo shipped: Claude Code + Codex + Cursor on one repo; `human/` layer is auto-generated from JSONL event sourcing
 
 ## License
 
@@ -315,131 +204,61 @@ MIT © 2026
 
 # MACS — AI Agent 的通用工作台
 
-> Claude Code、Codex、Cursor、Devin、Windsurf——每个 agent 都有自己的地盘。
->
-> **MACS 给它们一个共同的工作台。** 能读写文件就能加入，不需要服务器，只要 JSONL + Git。
+> 不是再做一个只服务单一框架的 agent 功能，而是让不同框架的 agent 能看见同一份工作状态。
 
-## 问题
+### 问题不是“多 agent 会冲突”，而是“跨框架 agent 看不到彼此”
 
-每个 AI 编程 agent 单独都很强。但它们没法一起干活：
-
-```
-Claude Code 在写后端    — 不知道 Cursor 正在改 API 设计
-Codex 在审代码          — 不知道 Devin 已经部署了修复
-Windsurf 在跑测试      — 不知道 schema 10 分钟前改了
-→ 每个人都在干活。没人在协调。全崩了。
+```text
+Claude Code 改了任务状态和 API 契约
+Codex 看不到这份上下文，继续基于旧假设审查
+Cursor 也在另一个会话里改同一条前端链路
+→ 每个工具都很聪明，但全局是盲的
 ```
 
-每个 agent 都有自己的内置任务系统（Claude Code 有 Agent Teams，Cursor 有 Composer）。但**它们看不到彼此在做什么。**
+### `.macs/` 是中立工作台
 
-**A2A/MCP 解决 agent 怎么说话。MACS 解决 agent 怎么一起干活——不管它们跑在什么框架上。**
-
-## 原理
-
-```
-.macs/
-├── protocol/          ← Agent 读写这里（JSONL，快，无冲突）
-│   ├── tasks.jsonl    # 任务生命周期事件（只追加）
-│   ├── events.jsonl   # 所有变更、决策、冲突
-│   ├── events/        # 每 agent 独立分片（events_sharding: true 时）
-│   ├── state.json     # 当前状态快照（自动重建）
-│   └── agents.json    # 谁在、能做什么
-│
-├── sync/inbox/        ← Agent 间通信
-│   ├── agent-001/
-│   └── agent-002/
-│
-├── transport/         ← HTTP Transport API（v5，云端 agent 用）
-├── plugins/           ← 插件目录，自动加载
-│
-└── human/             ← 自动生成的 Markdown（给人看）
-    ├── TASK.md
-    └── CHANGELOG.md
+```text
+Claude Code / Codex / Cursor / Aider / OpenClaw / LangChain
+                         ↓
+                      .macs/
+              protocol + inbox + human + transport
 ```
 
-**Agent 写 JSONL → 人读 Markdown。两全其美。**
+各框架保留自己的原生体验，只把工作状态汇聚到 `.macs/`。
 
-## 快速开始
+### 为什么不是直接用内置工具？
+
+如果你永远只在一个框架里工作，内置工具通常更合适。
+MACS 解决的是第二个框架进入仓库之后的问题。
+
+| 问题 | 单框架内置工具 | MACS |
+|---|---|---|
+| 单一框架内体验最好 | 是 | 不一定 |
+| Claude Code / Codex / Cursor 共享任务状态 | 否 | 是 |
+| 状态能直接跟 Git 一起版本化 | 一般不行 | 可以 |
+| 中途换框架还能续上任务 | 手动 | `macs boot` 自动接上 |
+
+### 5 分钟集成测试
 
 ```bash
-npx macs init
-# 搞定。你的项目现在有 .macs/ 了
+macs init "Interop Demo"
+macs add "Smoke test: prove another framework can pick this up" --requires review
+macs boot --agent codex-review --capabilities review --model gpt-5
 ```
 
-## 核心特性
+把第 3 条命令里的 agent 身份换成 Claude Code、Cursor、Aider、OpenClaw 都成立。
 
-- **Event Sourcing** — 每个操作都是只追加事件，无冲突，完整历史，任意状态可重建
-- **能力路由** — 任务声明所需能力（`requires_capabilities`），只有匹配的 agent 能认领
-- **负载均衡** — 自动均衡 agent 工作量，claimTask 上限可配（默认 3 任务/agent）
-- **强制 handoff** — block/cancel 必须留下 `--next` 交接记录，上下文不丢
-- **Review Chain** — 支持同行审查，approved → 完成，rejected → 返回修改
-- **升级协议** — 遇到人类决策瓶颈时升级，支持超时自动恢复
-- **死 Agent 重分配** — 心跳超时的 agent 自动标记为 dead，任务重新分配
-- **智能漂移检测** — 识别"转圈"（同文件反复改）和"方向偏离"，自动触发介入
-- **Swarm** — `macs swarm --agents N` 按依赖轮次自动分配任务
-- **插件系统（v4）** — `.macs/plugins/*.js` 自动加载，7 个 hooks，零配置扩展
-- **MCP 桥接（v4）** — 接 Claude Desktop，14 个 MCP tools，自然语言操作 MACS
-- **模板市场（v4）** — `macs template use saas-mvp` 一键生成完整任务树
-- **CI/CD（v4）** — `macs ci` 检测僵尸任务和死 agent，GitHub Actions 模板开箱即用
-- **HTTP Transport API（v5）** — 云端 agent 无需访问文件系统即可参与协作（REST + SSE）
-- **正式协议规范（v4.1）** — [MACS-SPEC.md](./MACS-SPEC.md)，任何人可实现合规的 MACS 引擎
-- **Skill 市场（v5.3）** — `macs skill install <name>` 从社区注册表或 GitHub 直接安装 Claude Code skill
-- **人类可读** — `human/` 目录自动从 JSONL 生成 Markdown
+### 平台支持
 
-## Skill 市场
+- Claude Code / PACEflow: [adapters/paceflow/README.md](./adapters/paceflow/README.md)
+- Codex: [adapters/codex/README.md](./adapters/codex/README.md)
+- OpenClaw: [adapters/openclaw/README.md](./adapters/openclaw/README.md)
+- Cursor: [adapters/cursor/README.md](./adapters/cursor/README.md)
+- Aider: [adapters/aider/README.md](./adapters/aider/README.md)
+- Continue.dev / VS Code: [docs/PLATFORM-COMPATIBILITY.md](./docs/PLATFORM-COMPATIBILITY.md)
+- LangChain / CrewAI / AutoGen: [adapters/langchain/pymacs.py](./adapters/langchain/pymacs.py)
+- Claude Desktop / 远程 agent: [adapters/mcp/README.md](./adapters/mcp/README.md)
 
-```bash
-macs skill list                          # 浏览社区注册的 skills
-macs skill install knowledge-graph       # 从注册表安装
-macs skill install github:user/repo      # 从 GitHub 直接安装
-macs skill search graph                  # 关键词搜索
-```
+一句话：
 
-安装后 skill 自动放入 `.claude/skills/`，重启 Claude Code 即可使用。想分享自己的 skill？向 [skills/registry.json](./skills/registry.json) 提 PR。
-
-## 定位
-
-```
-┌─────────────────────────────────────────────────────┐
-│                    你的项目                           │
-│                                                     │
-│   Claude Code  ·  Codex  ·  Cursor  ·  Devin  ...  │
-│        │           │          │          │          │
-│        └───────────┴──────────┴──────────┘          │
-│                        │                            │
-│              ┌─────────▼─────────┐                  │
-│              │   .macs/ (JSONL)  │                  │
-│              │  任务 · 事件 · 状态 │                  │
-│              └───────────────────┘                  │
-│                                                     │
-│   能读写文件的 agent → 即刻参与协作                    │
-└─────────────────────────────────────────────────────┘
-
-通信层（怎么说话）    工作层（怎么协作）    能力层（怎么进化）
-A2A (Google)         MACS（我们）         EvoMap (GEP)
-MCP (Anthropic)
-ACP (IBM)
-
-三层互补，不竞争。
-```
-
-## 平台支持
-
-**MACS 是框架无关的。** 协议就是文件——能读写磁盘（或 HTTP）的 agent 都能参与。
-
-| 平台 | 集成方式 |
-|------|---------|
-| **Claude Code** | Hooks + CLI |
-| **Codex (OpenAI)** | CLI + 文件读写 |
-| **Cursor** | `.cursorrules` 集成 |
-| **Devin / Windsurf** | 文件读写即可 |
-| **LangChain / CrewAI** | Python SDK |
-| **云端 Agent** | HTTP Transport API |
-
-```bash
-./install.sh  # 一键安装，自动检测平台
-```
-
-## 开源协议
-
-MIT © 2026
+**A2A / MCP 解决“怎么说话”，MACS 解决“不同框架的 agent 怎么共用一张工作台”。**

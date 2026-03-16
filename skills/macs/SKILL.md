@@ -1,6 +1,6 @@
 ---
 name: macs
-description: MACS Protocol v3.1 — Git for AI Agents. Multi-agent work coordination via JSONL Event Sourcing. Capability routing, review chain, escalation, dead agent reaping.
+description: MACS Protocol v3.1 — The Universal Workbench for AI Agents. Cross-framework work coordination via JSONL event sourcing, capability routing, review chain, escalation, and dead agent reaping.
 author: MACS Community
 version: 3.1.0
 metadata:
@@ -152,7 +152,7 @@ When starting a session on a MACS project, follow AGENT-GUIDE.md:
 │   ├── tasks.jsonl      ← Task events (append-only)
 │   ├── events.jsonl     ← Global events (append-only)
 │   ├── state.json       ← Current state (auto-rebuilt)
-│   └── agents.json      ← Agent registry
+│   └── state.json       ← Agent registry
 ├── sync/inbox/<id>/     ← Per-agent mailboxes
 └── human/               ← Auto-generated Markdown
     ├── TASK.md

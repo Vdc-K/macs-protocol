@@ -2,7 +2,7 @@
   "name": "@macs/protocol",
   "version": "3.0.0-alpha.1",
   "type": "module",
-  "description": "MACS Protocol v3.0 — Git for AI Agents. Event Sourcing + JSONL.",
+  "description": "MACS Protocol — The Universal Workbench for AI Agents. Cross-framework coordination via JSONL.",
   "main": "dist/engine.js",
   "bin": {
     "macs": "dist/cli.js"

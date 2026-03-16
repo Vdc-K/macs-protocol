@@ -4,19 +4,19 @@
 
 ### What is MACS?
 
-MACS (Multi-Agent Collaboration System) is a **document-driven methodology** for multi-agent collaboration. It uses structured markdown files (TASK.md, CHANGELOG.md, CONTEXT.md) as the "protocol" for agents to coordinate work asynchronously.
+MACS (Multi-Agent Collaboration System) is an **event-sourcing protocol** for multi-agent collaboration. Agents emit structured JSONL events via CLI commands; human-readable documents (TASK.md, CHANGELOG.md, CONTEXT.md) are auto-generated from the event log — you never edit them manually.
 
-Think of it as "Git for AI collaboration" - instead of agents talking in real-time, they read/write shared documents.
+Think of it as a universal workbench for AI agents — any framework issues `macs` CLI commands, and MACS handles persistence, history, and rendering into readable docs.
 
 ### How is MACS different from AutoGen/CrewAI/LangGraph?
 
 | Aspect | AutoGen/CrewAI/LangGraph | MACS |
 |--------|--------------------------|------|
-| **Communication** | Real-time message passing | Async document reading/writing |
-| **Infrastructure** | Python runtime required | Just files + Git |
-| **Learning Curve** | Medium-High (code) | Low (markdown) |
-| **Debugging** | Console logs | Git history |
-| **Human Oversight** | Programmatic | Natural (read docs) |
+| **Communication** | Real-time message passing | Async JSONL events via CLI |
+| **Infrastructure** | Python runtime required | MACS CLI + Git |
+| **Learning Curve** | Medium-High (code) | Low (CLI commands) |
+| **Debugging** | Console logs | Immutable event log |
+| **Human Oversight** | Programmatic | Auto-generated readable docs |
 | **Platform** | Language-specific | Platform-agnostic |
 
 **MACS complements, not competes with them**. You can use MACS as the "human interface layer" and AutoGen/CrewAI as execution engines.
@@ -40,14 +40,14 @@ SKILL.md is just for Claude Code users. Everyone else can use the templates dire
 
 ```bash
 cd your-project
-/path/to/macs/scripts/init.sh "Project Name"
+macs init "Project Name"
 ```
 
-This copies templates (TASK.md, CHANGELOG.md, etc.) to your project.
+This initializes the `.macs/` event store and generates the initial human-readable documents (TASK.md, CHANGELOG.md, etc.) in your project.
 
 ### Can I customize the templates?
 
-Yes! After running init.sh, edit the files to fit your workflow. Templates are starting points, not rigid rules.
+Yes! After running `macs init`, edit the files to fit your workflow. Templates are starting points, not rigid rules.
 
 ### What if I don't use Git?
 
@@ -76,12 +76,12 @@ cat CHANGELOG.md | grep "2025-12" >> archive/CHANGELOG-2025-12.md
 
 ### How do agents know what others are doing?
 
-Agents read `CHANGELOG.md` (recent changes log). It's like a commit log but for human-readable summaries.
+Agents query the MACS event log via CLI (`macs log`, `macs status`). MACS renders the current state into CHANGELOG.md automatically — agents read that for a human-readable summary.
 
 Example:
 ```
-Agent A: Reads CHANGELOG, sees "Added JWT auth - by opus #design"
-Agent A: Understands auth is done, starts on user profile feature
+Agent A: Runs `macs log --limit 5`, sees "Added JWT auth - by opus #design"
+Agent A: Understands auth is done, issues `macs start user-profile`
 ```
 
 ### What if two agents edit the same file?
@@ -98,11 +98,10 @@ Agent A: Understands auth is done, starts on user profile feature
 ### How do agents escalate blockers?
 
 See [Escalation Protocol](../templates/TASK.md):
-1. Change task status to `[BLOCKED]`
-2. Move to "🚨 Escalations" section in TASK.md
-3. Add reason + what you need
-4. Tag CHANGELOG with `#escalation`
-5. Lead reviews escalations on next turn
+1. Run `macs block <id> --reason "..." --next "..."`
+2. MACS emits a `task.blocked` event and updates TASK.md automatically
+3. If human escalation is needed, run `macs escalate <id> --reason "..."`
+4. Lead reviews blocked tasks on next turn via `macs status`
 
 ---
 
@@ -184,13 +183,14 @@ Do NOT read full conversation history."
 
 ### CHANGELOG.md exceeds 2k tokens
 
-Archive older entries:
+Archive older entries manually (do not edit CHANGELOG.md manually — move entries to an archive file and let MACS regenerate from the event log):
 ```bash
-# Move to archive
-grep "2025-" CHANGELOG.md >> archive/CHANGELOG-2025.md
-# Remove from CHANGELOG
-sed -i '/2025-/d' CHANGELOG.md
+# Move old CHANGELOG entries to an archive file
+cat CHANGELOG.md | grep "2025-12" >> archive/CHANGELOG-2025-12.md
+# Then remove those entries from CHANGELOG.md
 ```
+
+> Note: Automated `macs archive` command is planned for a future release.
 
 ### Agents ignore TASK.md escalations
 
@@ -227,9 +227,11 @@ Ensure agents log results to `knowledge/VALIDATION-LOG.md`:
 Yes! Use MACS as the planning layer:
 
 ```python
-# MACS writes task specs to tasks/autogen-task.md
-# AutoGen executes, writes results to results/task.md
-# MACS reviews and integrates into knowledge base
+# MACS CLI creates task, emits event
+# subprocess.run(["macs", "add", "--title", "autogen-task"])
+# AutoGen executes, reports via CLI
+# subprocess.run(["macs", "done", task_id, "--summary", result])
+# MACS auto-updates CHANGELOG.md and knowledge base
 ```
 
 See [ENTERPRISE-TEAMS.md](ENTERPRISE-TEAMS.md) integration section.

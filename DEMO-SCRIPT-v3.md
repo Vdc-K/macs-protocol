@@ -1,6 +1,6 @@
 # MACS Protocol v3.0 — Demo Script
 
-> Recording guide: "Git for AI Agents — 5 agents, 12 tasks, zero conflicts"
+> Recording guide: "The Universal Workbench for AI Agents — 5 agents, 12 tasks, cross-framework coordination"
 > Target length: 3–4 minutes
 
 ---
@@ -27,7 +27,7 @@ npm install -g macs-protocol
 Show terminal with large text or a simple title slide:
 ```
 MACS Protocol v3.0
-"Git for AI Agents"
+"The Universal Workbench for AI Agents"
 ```
 
 ---
@@ -202,7 +202,7 @@ macs swarm --agents 20 --simulate
 
 **X / Twitter:**
 ```
-MACS Protocol v3.0 — "Git for AI Agents"
+MACS Protocol v3.0 — "The Universal Workbench for AI Agents"
 
 Ran 5 agents on a 12-task project. Zero conflicts.
 The secret: append-only JSONL event store.

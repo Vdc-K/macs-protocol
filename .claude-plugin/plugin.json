@@ -1,7 +1,7 @@
 {
   "name": "macs-protocol",
   "version": "5.2.0",
-  "description": "MACS — Git for AI Agents. Multi-agent work coordination via JSONL Event Sourcing. Capability routing, review chain, escalation, dead agent reaping.",
+  "description": "MACS — The Universal Workbench for AI Agents. Cross-framework work coordination via JSONL Event Sourcing. Capability routing, review chain, escalation, dead agent reaping.",
   "author": {
     "name": "MACS Community",
     "email": "macs@vdc-k.dev"

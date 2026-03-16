@@ -1,5 +1,7 @@
 # MACS v2.3 Demo Script
 
+> **Superseded**: See [DEMO-SCRIPT-v3.md](DEMO-SCRIPT-v3.md) for the latest demo script.
+
 > 5-minute demo showing Markdown AST indexing + Dashboard
 
 ---
