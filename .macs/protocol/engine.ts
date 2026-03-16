@@ -249,7 +249,7 @@ export class MACSEngine {
   // State Rebuild — the heart of Event Sourcing
   // ----------------------------------------------------------
 
-  rebuildState(): MACSState {
+  rebuildState(skipWrite = false): MACSState {
     const taskEvents = this.getTaskEvents()
     const globalEvents = this.getGlobalEvents()
 
@@ -626,17 +626,19 @@ export class MACSEngine {
       metrics,
     }
 
-    writeJson(join(this.protocolDir, 'state.json'), state)
+    if (!skipWrite) {
+      writeJson(join(this.protocolDir, 'state.json'), state)
+    }
     return state
   }
 
   // ----------------------------------------------------------
-  // State Query
+  // State Query (read-only, no side effects)
   // ----------------------------------------------------------
 
   getState(): MACSState {
     const state = readJson<MACSState>(join(this.protocolDir, 'state.json'))
-    if (!state) return this.rebuildState()
+    if (!state) return this.rebuildState(true)
     return state
   }
 
