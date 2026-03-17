@@ -4,6 +4,19 @@ All notable changes to MACS are documented here.
 
 ---
 
+## 2026-03-17
+
+### v5.4.0 — Dogfood Fixes
+
+- [🐛 fix] **Unblock transfers ownership**: `task_unblocked` now sets status to `pending` and clears `assignee`, allowing any agent to re-claim
+- [🐛 fix] **Checkpoint validates owner**: `addCheckpoint()` throws if caller is not the task's assignee
+- [✨ feat] **Extended contribution stats**: agent stats now track `checkpoints_added`, `tasks_unblocked`, `reviews_done`
+- [🐛 fix] **getState() is read-only**: `getState()` no longer writes `state.json` when rebuilding from events
+- [📝 docs] **Dogfood report**: 4-agent cross-provider experiment documented in `DOGFOOD-REPORT.md`
+- [📝 docs] **Full doc alignment**: all active docs updated from "document-driven" to event-sourcing CLI narrative
+
+---
+
 ## 2026-03-13
 
 ### v5.3.0 — Skill Marketplace
