@@ -282,12 +282,14 @@ export class MACSEngine {
                 case 'task_unblocked': {
                     const task = tasks[event.id];
                     if (task) {
-                        task.status = 'in_progress';
+                        task.status = 'pending';
+                        task.assignee = null;
                         const lastBlock = task.blocked_history[task.blocked_history.length - 1];
                         if (lastBlock && !lastBlock.unblocked_at) {
                             lastBlock.unblocked_at = event.ts;
                             lastBlock.duration_ms = new Date(event.ts).getTime() - new Date(lastBlock.blocked_at).getTime();
                             lastBlock.decision = event.data.decision;
+                            lastBlock.unblocked_by = event.by;
                         }
                     }
                     break;
@@ -445,6 +447,9 @@ export class MACSEngine {
                             avg_task_time_ms: 0,
                             blocked_count: 0,
                             blocked_time_ms: 0,
+                            checkpoints_added: 0,
+                            tasks_unblocked: 0,
+                            reviews_done: 0,
                         }
                     };
                     break;
@@ -516,6 +521,21 @@ export class MACSEngine {
                 const task = tasks[event.id];
                 if (task?.assignee && agents[task.assignee]) {
                     agents[task.assignee].stats.blocked_count++;
+                }
+            }
+            if (event.type === 'task_checkpoint') {
+                if (event.by && agents[event.by]) {
+                    agents[event.by].stats.checkpoints_added++;
+                }
+            }
+            if (event.type === 'task_unblocked') {
+                if (event.by && agents[event.by]) {
+                    agents[event.by].stats.tasks_unblocked++;
+                }
+            }
+            if (event.type === 'task_reviewed') {
+                if (event.by && agents[event.by]) {
+                    agents[event.by].stats.reviews_done++;
                 }
             }
         }
@@ -813,6 +833,13 @@ export class MACSEngine {
     // Checkpoint & Drift Detection (2.28)
     // ----------------------------------------------------------
     addCheckpoint(agentId, taskId, data) {
+        const state = this.getState();
+        const task = state.tasks[taskId];
+        if (!task)
+            throw new Error(`Task ${taskId} not found`);
+        if (task.assignee !== agentId) {
+            throw new Error(`Only the task owner can add checkpoints (current owner: ${task.assignee ?? 'unassigned'})`);
+        }
         this.appendTaskEvent({
             type: 'task_checkpoint',
             id: taskId,
