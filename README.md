@@ -192,7 +192,11 @@ MACS solves how agents working in different frameworks see the same work.
 - [x] **v5.1** — Easy-mode CLI (`macs add`, auto-claim `macs start`)
 - [x] **v5.2** — Superpowers plan import, PACEflow hooks
 - [x] **v5.3** — Skill marketplace
-- [x] **v5.4** — first end-to-end cross-framework demo shipped: Claude Code + Codex + Cursor on one repo; `human/` layer is auto-generated from JSONL event sourcing
+- [x] **v5.4** — [4-agent dogfood](DOGFOOD-REPORT.md): Claude Opus + Sonnet + GPT-5.4 + local OmniCoder-9B shared one `.macs/` workspace; found and fixed 3 protocol bugs same day
+
+## Real-World Validation
+
+We [dogfooded MACS](DOGFOOD-REPORT.md) with 4 agents from 3 providers (Anthropic, OpenAI, local Ollama) on a real task. A **9B local model running on a laptop** made a design decision that unblocked a task for Claude Opus. The experiment found 3 protocol bugs — all fixed and shipped in v5.4.0.
 
 ## License
 
@@ -261,4 +265,8 @@ macs boot --agent codex-review --capabilities review --model gpt-5
 
 一句话：
 
-**A2A / MCP 解决“怎么说话”，MACS 解决“不同框架的 agent 怎么共用一张工作台”。**
+**A2A / MCP 解决”怎么说话”，MACS 解决”不同框架的 agent 怎么共用一张工作台”。**
+
+### 真实验证
+
+我们用 4 个 agent（Claude Opus + Sonnet + GPT-5.4 + 本地 OmniCoder-9B）[做了一次真实协作实验](DOGFOOD-REPORT.md)。一个跑在笔记本上的 9B 本地模型做了一个设计决策，解除了 Claude Opus 的任务阻塞。实验发现了 3 个协议层 bug，当天全部修复并发版 v5.4.0。
