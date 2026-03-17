@@ -1,3 +1,5 @@
+[中文版](DOGFOOD-REPORT.zh-CN.md)
+
 # MACS Dogfood Report: 4 Agents, 3 Providers, 1 Shared Workbench
 
 > Date: 2026-03-17

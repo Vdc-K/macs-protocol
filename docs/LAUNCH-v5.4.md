@@ -1,3 +1,5 @@
+[English version](LAUNCH-v5.4.en.md)
+
 # MACS v5.4: 一个 9B 本地模型给 Claude Opus 解了围
 
 > 2026-03-17 | macs-protocol v5.4.0 | [GitHub](https://github.com/Vdc-K/macs-protocol) | [npm](https://www.npmjs.com/package/macs-protocol)
