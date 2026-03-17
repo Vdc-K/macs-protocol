@@ -33,7 +33,7 @@ export declare class MACSEngine {
     appendGlobalEvent(event: Omit<GlobalEvent, 'seq'>): GlobalEvent;
     getTaskEvents(): TaskEvent[];
     getGlobalEvents(): GlobalEvent[];
-    rebuildState(): MACSState;
+    rebuildState(skipWrite?: boolean): MACSState;
     getState(): MACSState;
     findTasks(filter: {
         status?: TaskState['status'];

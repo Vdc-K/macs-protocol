@@ -298,6 +298,7 @@ export interface TaskState {
 export interface BlockedRecord {
     blocked_at: string;
     unblocked_at?: string;
+    unblocked_by?: string;
     duration_ms?: number;
     reason: string;
     decision?: string;
@@ -323,6 +324,9 @@ export interface AgentStats {
     avg_task_time_ms: number;
     blocked_count: number;
     blocked_time_ms: number;
+    checkpoints_added: number;
+    tasks_unblocked: number;
+    reviews_done: number;
 }
 export interface LockState {
     file: string;
